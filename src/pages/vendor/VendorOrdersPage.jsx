@@ -1,0 +1,285 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Package, Check, X, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+
+const ASSIGNED_KEY = 'crystal_assigned_sheets';
+
+function getAssignments() {
+    try {
+        const saved = localStorage.getItem(ASSIGNED_KEY);
+        return saved ? JSON.parse(saved) : [];
+    } catch {
+        return [];
+    }
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+        return dateStr;
+    }
+}
+
+export default function VendorOrdersPage() {
+    const { user } = useAuth();
+    const [assignments, setAssignments] = useState([]);
+    const [expandedId, setExpandedId] = useState(null);
+
+    useEffect(() => {
+        loadOrders();
+    }, [user]);
+
+    const loadOrders = () => {
+        const all = getAssignments();
+        // Filter by vendor — match vendorNo to user.vendorId
+        const mine = all.filter((a) => a.vendorNo === user?.vendorId);
+        setAssignments(mine);
+    };
+
+    const handleUpdateStatus = (assignmentId, newStatus) => {
+        const all = getAssignments();
+        const updated = all.map((a) => {
+            if (a.id === assignmentId) {
+                return { ...a, status: newStatus, respondedAt: new Date().toISOString() };
+            }
+            return a;
+        });
+        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
+
+        // Refresh local state
+        const mine = updated.filter((a) => a.vendorNo === user?.vendorId);
+        setAssignments(mine);
+
+        if (newStatus === 'accepted') {
+            toast.success('Order accepted!');
+        } else {
+            toast.info('Order declined.');
+        }
+    };
+
+    const getStatusBadge = (status) => {
+        const styles = {
+            pending: 'bg-amber-100 text-amber-800',
+            accepted: 'bg-green-100 text-green-800',
+            declined: 'bg-red-100 text-red-800',
+        };
+        const labels = {
+            pending: 'Pending',
+            accepted: 'Accepted',
+            declined: 'Declined',
+        };
+        return (
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || styles.pending}`}>
+                {labels[status] || status}
+            </span>
+        );
+    };
+
+    const inputClass = "border-0 shadow-none h-8 rounded-none focus-visible:ring-0 px-1";
+
+    return (
+        <div className="max-w-5xl mx-auto space-y-6 pb-12">
+            {/* Header */}
+            <div>
+                <div className="flex items-center gap-2 mb-2">
+                    <Package className="h-6 w-6 text-slate-700" />
+                    <h1 className="text-2xl font-bold text-slate-900">My Orders</h1>
+                </div>
+                <p className="text-slate-500">View and respond to assigned work orders</p>
+            </div>
+
+            {/* Orders List */}
+            {assignments.length === 0 ? (
+                <Card>
+                    <CardContent className="py-16">
+                        <div className="text-center text-slate-500">
+                            <Package className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+                            <p className="font-medium">No orders assigned to you yet.</p>
+                            <p className="text-sm mt-1">Orders assigned by the company will appear here.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="space-y-4">
+                    {assignments.map((assignment) => {
+                        const fd = assignment.sheet.formData;
+                        const isExpanded = expandedId === assignment.id;
+
+                        return (
+                            <Card key={assignment.id} className="overflow-hidden">
+                                {/* Summary */}
+                                <div
+                                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                                    onClick={() => setExpandedId(isExpanded ? null : assignment.id)}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`h-10 w-10 rounded flex items-center justify-center ${assignment.status === 'accepted' ? 'bg-green-50 text-green-600' :
+                                                assignment.status === 'declined' ? 'bg-red-50 text-red-600' :
+                                                    'bg-amber-50 text-amber-600'
+                                            }`}>
+                                            {assignment.status === 'accepted' ? <Check className="h-5 w-5" /> :
+                                                assignment.status === 'declined' ? <X className="h-5 w-5" /> :
+                                                    <Clock className="h-5 w-5" />}
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-slate-800">
+                                                {fd.jobNo}
+                                                <span className="font-normal text-slate-500 ml-2">— {formatDate(fd.date)}</span>
+                                            </p>
+                                            <p className="text-sm text-slate-500">
+                                                RS No: {fd.rsNo || '—'} • Assigned: {formatDate(assignment.assignedAt)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {getStatusBadge(assignment.status)}
+                                        {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                                    </div>
+                                </div>
+
+                                {/* Expanded — Full Sheet Details */}
+                                {isExpanded && (
+                                    <div className="border-t">
+                                        {/* Radiographic Requisition Sheet Header */}
+                                        <div className="p-4">
+                                            <table className="w-full border-collapse border border-slate-400 text-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th colSpan={4} className="border border-slate-400 bg-slate-100 px-3 py-2 text-center font-semibold text-slate-800">
+                                                            Radiographic requisition sheet
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 w-[15%] bg-slate-50">RS NO.:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5 w-[35%]">{fd.rsNo || '—'}</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 w-[15%] bg-slate-50">Date:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5 w-[35%]">{formatDate(fd.date)}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">radiation source.:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.radiationSource || '—'}</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">X ray:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.xRay || '—'}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Job no.:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.jobNo || '—'}</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">weld reinforcement:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.weldReinforcement || '—'}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Base material:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.baseMaterial || '—'}</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Base metal:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.baseMetal || '—'}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">QI location:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">
+                                                            {fd.qiLocation || '—'}
+                                                            {fd.filmSide && <span className="ml-3 text-slate-500">film side: {fd.filmSide}</span>}
+                                                        </td>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">IQI type:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.iqiType || '—'}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Technique:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.technique || '—'}</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Film size:</td>
+                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.filmSize || '—'}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">note:</td>
+                                                        <td colSpan={3} className="border border-slate-400 px-3 py-1.5">{fd.note || '—'}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Detail Sections */}
+                                        {assignment.sheet.sections && assignment.sheet.sections.length > 0 && (
+                                            <div className="px-4 pb-4 space-y-3">
+                                                {assignment.sheet.sections.map((section, sIdx) => (
+                                                    <table key={sIdx} className="w-full border-collapse border border-slate-400 text-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50 w-[15%]">
+                                                                    Serial No:
+                                                                </th>
+                                                                <th colSpan={5} className="border border-slate-400 px-3 py-1.5 text-left font-medium">
+                                                                    {section.serialNo || '—'}
+                                                                </th>
+                                                            </tr>
+                                                            <tr>
+                                                                <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
+                                                                <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
+                                                                <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
+                                                                <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
+                                                                <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Result</th>
+                                                            </tr>
+                                                            <tr>
+                                                                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">knes</th>
+                                                                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Client</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {section.rows.map((row, rIdx) => (
+                                                                <tr key={rIdx}>
+                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.jobWeldDescription || '—'}</td>
+                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.spotNos || '—'}</td>
+                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.observation || '—'}</td>
+                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.filmSize || '—'}</td>
+                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.knes || '—'}</td>
+                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.client || '—'}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Accept / Decline Buttons */}
+                                        {assignment.status === 'pending' && (
+                                            <div className="border-t px-4 py-3 bg-slate-50 flex items-center justify-end gap-3">
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => handleUpdateStatus(assignment.id, 'declined')}
+                                                    className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700 gap-1.5"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                    Decline
+                                                </Button>
+                                                <Button
+                                                    onClick={() => handleUpdateStatus(assignment.id, 'accepted')}
+                                                    className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
+                                                >
+                                                    <Check className="h-4 w-4" />
+                                                    Accept
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        {/* Already responded */}
+                                        {assignment.status !== 'pending' && assignment.respondedAt && (
+                                            <div className="border-t px-4 py-3 bg-slate-50 text-sm text-slate-500">
+                                                {assignment.status === 'accepted' ? 'Accepted' : 'Declined'} on {formatDate(assignment.respondedAt)}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </Card>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
