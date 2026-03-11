@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, ChevronDown, ChevronUp, Clock, CheckCircle2, CircleDot } from 'lucide-react';
+import { TrendingUp, ChevronDown, ChevronUp, Clock, CheckCircle2, CircleDot, SendHorizonal, RotateCcw, Wrench, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ASSIGNED_KEY = 'crystal_assigned_sheets';
@@ -40,6 +40,9 @@ export default function VendorOrderProgressPage() {
 
     useEffect(() => {
         loadOrders();
+        const onFocus = () => loadOrders();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
     }, [user]);
 
     const handleSectionStatus = (assignmentId, sectionIndex, newStatus) => {
@@ -60,6 +63,21 @@ export default function VendorOrderProgressPage() {
         toast.success(`Section marked as ${newStatus}`);
     };
 
+    const handleSubmitSheet = (assignmentId) => {
+        const all = getAssignments();
+        const updated = all.map((a) => {
+            if (a.id === assignmentId) {
+                return { ...a, submitted: true, submittedAt: new Date().toISOString() };
+            }
+            return a;
+        });
+        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
+        const mine = updated.filter(
+            (a) => a.vendorNo === user?.vendorId && a.status === 'accepted'
+        );
+        setAcceptedOrders(mine);
+        toast.success('Sheet submitted to company!');
+    };
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-12">
             {/* Header */}
@@ -192,6 +210,10 @@ export default function VendorOrderProgressPage() {
                                             <div className="px-4 pb-4 space-y-3">
                                                 {assignment.sheet.sections.map((section, sIdx) => {
                                                     const sStatus = sectionStatuses[sIdx] || 'pending';
+                                                    const reviewStatuses = assignment.reviewStatuses || assignment.sheet.sections.map(() => null);
+                                                    const reviewDescriptions = assignment.reviewDescriptions || assignment.sheet.sections.map(() => '');
+                                                    const rStatus = reviewStatuses[sIdx];
+                                                    const rDesc = reviewDescriptions[sIdx] || '';
                                                     return (
                                                         <table key={sIdx} className="w-full border-collapse border border-slate-400 text-sm">
                                                             <thead>
@@ -227,6 +249,42 @@ export default function VendorOrderProgressPage() {
                                                                         </div>
                                                                     </th>
                                                                 </tr>
+                                                                {/* Company Review Badge Row */}
+                                                                <tr>
+                                                                    <th colSpan={6} className={`border border-slate-400 px-3 py-1.5 text-left text-xs ${
+                                                                        rStatus === 'ok' ? 'bg-green-50' :
+                                                                        rStatus === 'retake' ? 'bg-orange-50' :
+                                                                        rStatus === 'repair' ? 'bg-red-50' :
+                                                                        'bg-slate-50'
+                                                                    }`}>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="font-medium text-slate-600">Company Review:</span>
+                                                                            {rStatus === 'ok' && (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                                    <Check className="h-3 w-3" /> OK
+                                                                                </span>
+                                                                            )}
+                                                                            {rStatus === 'retake' && (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                                                                    <RotateCcw className="h-3 w-3" /> Retake
+                                                                                </span>
+                                                                            )}
+                                                                            {rStatus === 'repair' && (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                                    <Wrench className="h-3 w-3" /> Repair
+                                                                                </span>
+                                                                            )}
+                                                                            {!rStatus && (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                                                                                    Not Reviewed
+                                                                                </span>
+                                                                            )}
+                                                                            {rDesc && (rStatus === 'retake' || rStatus === 'repair') && (
+                                                                                <span className="text-slate-600">— {rDesc}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    </th>
+                                                                </tr>
                                                                 <tr>
                                                                     <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
                                                                     <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
@@ -256,6 +314,25 @@ export default function VendorOrderProgressPage() {
                                                 })}
                                             </div>
                                         )}
+
+                                        {/* Submit Button */}
+                                        <div className="px-4 py-3 border-t bg-slate-50 flex items-center justify-end gap-3">
+                                            {assignment.submitted ? (
+                                                <div className="flex items-center gap-2 text-sm text-green-700">
+                                                    <CheckCircle2 className="h-4 w-4" />
+                                                    <span className="font-medium">Submitted</span>
+                                                    <span className="text-slate-400">({formatDate(assignment.submittedAt)})</span>
+                                                </div>
+                                            ) : (
+                                                <Button
+                                                    onClick={() => handleSubmitSheet(assignment.id)}
+                                                    className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+                                                >
+                                                    <SendHorizonal className="h-4 w-4" />
+                                                    Submit to Company
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </Card>

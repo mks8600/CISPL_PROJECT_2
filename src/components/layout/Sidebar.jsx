@@ -8,7 +8,8 @@ import {
   Briefcase,
   Users,
   TrendingUp,
-  Activity
+  Activity,
+  AlertTriangle
 } from 'lucide-react';
 
 export function Sidebar({ portalType }) {
@@ -45,6 +46,11 @@ export function Sidebar({ portalType }) {
       title: 'Order Status',
       href: '/company/order-status',
       icon: <Activity className="h-5 w-5" />,
+    },
+    {
+      title: 'Pending Work',
+      href: '/company/pending-work',
+      icon: <AlertTriangle className="h-5 w-5" />,
     },
   ];
 

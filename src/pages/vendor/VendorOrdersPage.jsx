@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, Check, X, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { Package, Check, X, ChevronDown, ChevronUp, Clock, RotateCcw, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ASSIGNED_KEY = 'crystal_assigned_sheets';
@@ -32,6 +32,9 @@ export default function VendorOrdersPage() {
 
     useEffect(() => {
         loadOrders();
+        const onFocus = () => loadOrders();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
     }, [user]);
 
     const loadOrders = () => {
@@ -204,47 +207,93 @@ export default function VendorOrdersPage() {
                                         </div>
 
                                         {/* Detail Sections */}
-                                        {assignment.sheet.sections && assignment.sheet.sections.length > 0 && (
-                                            <div className="px-4 pb-4 space-y-3">
-                                                {assignment.sheet.sections.map((section, sIdx) => (
-                                                    <table key={sIdx} className="w-full border-collapse border border-slate-400 text-sm">
-                                                        <thead>
-                                                            <tr>
-                                                                <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50 w-[15%]">
-                                                                    Serial No:
-                                                                </th>
-                                                                <th colSpan={5} className="border border-slate-400 px-3 py-1.5 text-left font-medium">
-                                                                    {section.serialNo || '—'}
-                                                                </th>
-                                                            </tr>
-                                                            <tr>
-                                                                <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
-                                                                <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
-                                                                <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
-                                                                <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
-                                                                <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Result</th>
-                                                            </tr>
-                                                            <tr>
-                                                                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">knes</th>
-                                                                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Client</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {section.rows.map((row, rIdx) => (
-                                                                <tr key={rIdx}>
-                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.jobWeldDescription || '—'}</td>
-                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.spotNos || '—'}</td>
-                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.observation || '—'}</td>
-                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.filmSize || '—'}</td>
-                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.knes || '—'}</td>
-                                                                    <td className="border border-slate-400 px-3 py-1.5">{row.client || '—'}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                ))}
-                                            </div>
-                                        )}
+                                        {assignment.sheet.sections && assignment.sheet.sections.length > 0 && (() => {
+                                            const reviewStatuses = assignment.reviewStatuses || assignment.sheet.sections.map(() => null);
+                                            const reviewDescriptions = assignment.reviewDescriptions || assignment.sheet.sections.map(() => '');
+                                            const hasReviewIssues = reviewStatuses.some((r) => r === 'retake' || r === 'repair');
+
+                                            return (
+                                                <>
+                                                    {hasReviewIssues && (
+                                                        <div className="mx-4 mb-2 p-3 rounded-lg bg-orange-50 border border-orange-200 text-sm text-orange-800">
+                                                            <span className="font-semibold">⚠ Company Review:</span> Some sections have been marked for retake or repair. See details below.
+                                                        </div>
+                                                    )}
+                                                    <div className="px-4 pb-4 space-y-3">
+                                                        {assignment.sheet.sections.map((section, sIdx) => {
+                                                            const rStatus = reviewStatuses[sIdx];
+                                                            const rDesc = reviewDescriptions[sIdx] || '';
+                                                            return (
+                                                                <table key={sIdx} className="w-full border-collapse border border-slate-400 text-sm">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50 w-[15%]">
+                                                                                Serial No:
+                                                                            </th>
+                                                                            <th colSpan={3} className="border border-slate-400 px-3 py-1.5 text-left font-medium">
+                                                                                {section.serialNo || '—'}
+                                                                            </th>
+                                                                            <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-right">
+                                                                                {rStatus === 'retake' && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                                                                        <RotateCcw className="h-3 w-3" /> Retake
+                                                                                    </span>
+                                                                                )}
+                                                                                {rStatus === 'repair' && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                                        <Wrench className="h-3 w-3" /> Repair
+                                                                                    </span>
+                                                                                )}
+                                                                                {rStatus === 'ok' && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                                        <Check className="h-3 w-3" /> OK
+                                                                                    </span>
+                                                                                )}
+                                                                                {!rStatus && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                                                                                        Not Reviewed
+                                                                                    </span>
+                                                                                )}
+                                                                            </th>
+                                                                        </tr>
+                                                                        {rDesc && (rStatus === 'retake' || rStatus === 'repair') && (
+                                                                            <tr>
+                                                                                <td colSpan={6} className={`border border-slate-400 px-3 py-1.5 text-sm ${rStatus === 'retake' ? 'bg-orange-50 text-orange-800' : 'bg-red-50 text-red-800'}`}>
+                                                                                    <span className="font-medium">Reason:</span> {rDesc}
+                                                                                </td>
+                                                                            </tr>
+                                                                        )}
+                                                                        <tr>
+                                                                            <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
+                                                                            <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
+                                                                            <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
+                                                                            <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
+                                                                            <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Result</th>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">knes</th>
+                                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Client</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {section.rows.map((row, rIdx) => (
+                                                                            <tr key={rIdx}>
+                                                                                <td className="border border-slate-400 px-3 py-1.5">{row.jobWeldDescription || '—'}</td>
+                                                                                <td className="border border-slate-400 px-3 py-1.5">{row.spotNos || '—'}</td>
+                                                                                <td className="border border-slate-400 px-3 py-1.5">{row.observation || '—'}</td>
+                                                                                <td className="border border-slate-400 px-3 py-1.5">{row.filmSize || '—'}</td>
+                                                                                <td className="border border-slate-400 px-3 py-1.5">{row.knes || '—'}</td>
+                                                                                <td className="border border-slate-400 px-3 py-1.5">{row.client || '—'}</td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
 
                                         {/* Accept / Decline Buttons */}
                                         {assignment.status === 'pending' && (

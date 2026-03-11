@@ -64,12 +64,19 @@ export default function CreateOrderPage() {
 
   // Load jobs from localStorage (same data as Manage Job No page)
   const [jobsList, setJobsList] = useState([]);
+  const [filmSizesList, setFilmSizesList] = useState([]);
   useEffect(() => {
     try {
       const saved = localStorage.getItem('crystal_jobs');
       if (saved) setJobsList(JSON.parse(saved));
     } catch {
       setJobsList([]);
+    }
+    try {
+      const saved = localStorage.getItem('crystal_film_sizes');
+      if (saved) setFilmSizesList(JSON.parse(saved));
+    } catch {
+      setFilmSizesList([]);
     }
   }, []);
 
@@ -260,8 +267,8 @@ export default function CreateOrderPage() {
                   key={sheet.id}
                   onClick={() => handleLoadSheet(sheet)}
                   className={`flex items-center justify-between p-3 rounded-md border cursor-pointer transition-colors ${activeSheetId === sheet.id
-                      ? 'bg-blue-50 border-blue-300'
-                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-blue-50 border-blue-300'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
                     }`}
                 >
                   <div className="flex items-center gap-3">
@@ -477,7 +484,20 @@ export default function CreateOrderPage() {
                     <Input value={row.observation} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'observation', e.target.value)} className={inputClass} />
                   </td>
                   <td className="border border-slate-400 px-2 py-1">
-                    <Input value={row.filmSize} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'filmSize', e.target.value)} className={inputClass} />
+                    <Select value={row.filmSize} onValueChange={(val) => handleRowChange(sectionIndex, rowIndex, 'filmSize', val)}>
+                      <SelectTrigger className="border-0 shadow-none h-8 rounded-none focus:ring-0 px-1">
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filmSizesList.length === 0 ? (
+                          <SelectItem value="_none" disabled>No sizes — add from Dashboard</SelectItem>
+                        ) : (
+                          filmSizesList.map((size) => (
+                            <SelectItem key={size} value={size}>{size}</SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td className="border border-slate-400 px-2 py-1">
                     <Input value={row.knes} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'knes', e.target.value)} className={inputClass} />

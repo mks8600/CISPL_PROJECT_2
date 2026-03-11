@@ -10,6 +10,7 @@ import CreateOrderPage from './pages/company/CreateOrderPage';
 import ManageJobPage from './pages/company/ManageJobPage';
 import ManageVendorsPage from './pages/company/ManageVendorsPage';
 import CompanyOrderStatusPage from './pages/company/CompanyOrderStatusPage';
+import CompanyPendingWorkPage from './pages/company/CompanyPendingWorkPage';
 import CompanyLayout from './layouts/CompanyLayout';
 import VendorLayout from './layouts/VendorLayout';
 import VendorLoginPage from './pages/vendor/VendorLoginPage';
@@ -34,6 +35,7 @@ function App() {
             <Route path="/company/manage-job" element={<ManageJobPage />} />
             <Route path="/company/manage-vendors" element={<ManageVendorsPage />} />
             <Route path="/company/order-status" element={<CompanyOrderStatusPage />} />
+            <Route path="/company/pending-work" element={<CompanyPendingWorkPage />} />
           </Route>
 
           <Route element={<VendorLayout />}>

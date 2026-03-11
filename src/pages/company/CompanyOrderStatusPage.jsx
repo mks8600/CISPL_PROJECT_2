@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Activity, ChevronDown, ChevronUp, CheckCircle2, CircleDot } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Activity, ChevronDown, ChevronUp, CheckCircle2, CircleDot, RotateCcw, Wrench } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ASSIGNED_KEY = 'crystal_assigned_sheets';
 
@@ -25,6 +28,7 @@ function formatDate(dateStr) {
 export default function CompanyOrderStatusPage() {
     const [assignments, setAssignments] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
+    const [descriptions, setDescriptions] = useState({});
 
     useEffect(() => {
         loadData();
@@ -35,9 +39,57 @@ export default function CompanyOrderStatusPage() {
 
     const loadData = () => {
         const all = getAssignments();
-        // Show only accepted orders that have sections
-        const accepted = all.filter((a) => a.status === 'accepted');
+        const accepted = all.filter((a) => a.status === 'accepted' && a.submitted === true);
         setAssignments(accepted);
+    };
+
+    const handleReview = (assignmentId, sectionIndex, reviewStatus) => {
+        const descKey = `${assignmentId}-${sectionIndex}`;
+        const description = descriptions[descKey] || '';
+
+        if ((reviewStatus === 'retake' || reviewStatus === 'repair') && !description.trim()) {
+            toast.error('Please enter a description for Retake/Repair.');
+            return;
+        }
+
+        const all = getAssignments();
+        const updated = all.map((a) => {
+            if (a.id === assignmentId) {
+                const reviewStatuses = a.reviewStatuses ? [...a.reviewStatuses] : (a.sheet.sections || []).map(() => null);
+                const reviewDescriptions = a.reviewDescriptions ? [...a.reviewDescriptions] : (a.sheet.sections || []).map(() => '');
+                reviewStatuses[sectionIndex] = reviewStatus;
+                reviewDescriptions[sectionIndex] = reviewStatus === 'ok' ? '' : description.trim();
+                return { ...a, reviewStatuses, reviewDescriptions };
+            }
+            return a;
+        });
+        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
+        setAssignments(updated.filter((a) => a.status === 'accepted' && a.submitted === true));
+        setDescriptions((prev) => ({ ...prev, [descKey]: '' }));
+        toast.success(`Section marked as ${reviewStatus.charAt(0).toUpperCase() + reviewStatus.slice(1)}!`);
+    };
+
+    const getReviewBadge = (status) => {
+        if (status === 'ok') return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <CheckCircle2 className="h-3 w-3" /> OK
+            </span>
+        );
+        if (status === 'retake') return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                <RotateCcw className="h-3 w-3" /> Retake
+            </span>
+        );
+        if (status === 'repair') return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                <Wrench className="h-3 w-3" /> Repair
+            </span>
+        );
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                <CircleDot className="h-3 w-3" /> Not Reviewed
+            </span>
+        );
     };
 
     return (
@@ -48,7 +100,7 @@ export default function CompanyOrderStatusPage() {
                     <Activity className="h-6 w-6 text-slate-700" />
                     <h1 className="text-2xl font-bold text-slate-900">Order Status</h1>
                 </div>
-                <p className="text-slate-500">Track section-level progress of accepted orders</p>
+                <p className="text-slate-500">Review submitted sections — mark as OK, Retake, or Repair</p>
             </div>
 
             {/* Orders */}
@@ -57,8 +109,8 @@ export default function CompanyOrderStatusPage() {
                     <CardContent className="py-16">
                         <div className="text-center text-slate-500">
                             <Activity className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                            <p className="font-medium">No accepted orders to track.</p>
-                            <p className="text-sm mt-1">Accepted orders will appear here with section-level status.</p>
+                            <p className="font-medium">No submitted orders to review.</p>
+                            <p className="text-sm mt-1">Submitted orders will appear here for review.</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -69,9 +121,11 @@ export default function CompanyOrderStatusPage() {
                         const isExpanded = expandedId === assignment.id;
                         const sections = assignment.sheet.sections || [];
                         const sectionStatuses = assignment.sectionStatuses || sections.map(() => 'pending');
+                        const reviewStatuses = assignment.reviewStatuses || sections.map(() => null);
+                        const reviewDescriptions = assignment.reviewDescriptions || sections.map(() => '');
                         const completedCount = sectionStatuses.filter((s) => s === 'complete').length;
                         const totalSections = sectionStatuses.length;
-                        const allComplete = totalSections > 0 && completedCount === totalSections;
+                        const reviewedCount = reviewStatuses.filter((s) => s !== null).length;
 
                         return (
                             <Card key={assignment.id} className="overflow-hidden">
@@ -81,9 +135,8 @@ export default function CompanyOrderStatusPage() {
                                     onClick={() => setExpandedId(isExpanded ? null : assignment.id)}
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className={`h-10 w-10 rounded flex items-center justify-center ${allComplete ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
-                                            }`}>
-                                            {allComplete ? <CheckCircle2 className="h-5 w-5" /> : <CircleDot className="h-5 w-5" />}
+                                        <div className={`h-10 w-10 rounded flex items-center justify-center ${reviewedCount === totalSections && totalSections > 0 ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                                            {reviewedCount === totalSections && totalSections > 0 ? <CheckCircle2 className="h-5 w-5" /> : <CircleDot className="h-5 w-5" />}
                                         </div>
                                         <div>
                                             <p className="font-semibold text-slate-800">
@@ -97,30 +150,19 @@ export default function CompanyOrderStatusPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        {/* Progress bar */}
                                         {totalSections > 0 && (
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all ${allComplete ? 'bg-green-500' : 'bg-amber-500'}`}
-                                                        style={{ width: `${(completedCount / totalSections) * 100}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-xs font-medium text-slate-600">{completedCount}/{totalSections}</span>
-                                            </div>
+                                            <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                                                {reviewedCount}/{totalSections} Reviewed
+                                            </span>
                                         )}
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${allComplete ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
-                                            }`}>
-                                            {allComplete ? 'All Complete' : 'In Progress'}
-                                        </span>
                                         {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                                     </div>
                                 </div>
 
-                                {/* Expanded — Section Status List */}
+                                {/* Expanded — Section Review */}
                                 {isExpanded && (
                                     <div className="border-t px-4 py-4">
-                                        {/* Sheet Info Summary */}
+                                        {/* Sheet Info */}
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4 p-3 bg-slate-50 rounded-lg">
                                             <div><span className="text-slate-500">Job No:</span> <span className="font-medium">{fd.jobNo}</span></div>
                                             <div><span className="text-slate-500">Date:</span> <span className="font-medium">{formatDate(fd.date)}</span></div>
@@ -128,53 +170,120 @@ export default function CompanyOrderStatusPage() {
                                             <div><span className="text-slate-500">Technique:</span> <span className="font-medium">{fd.technique || '—'}</span></div>
                                         </div>
 
-                                        {/* Sections Status Table */}
-                                        <h4 className="text-sm font-semibold text-slate-700 mb-2">Section Status</h4>
+                                        {/* Sections */}
                                         {sections.length === 0 ? (
                                             <p className="text-sm text-slate-400">No sections in this sheet.</p>
                                         ) : (
-                                            <div className="border rounded-lg overflow-hidden">
-                                                <table className="w-full text-sm">
-                                                    <thead>
-                                                        <tr className="bg-slate-100">
-                                                            <th className="text-left px-4 py-2 font-medium text-slate-700 border-b">#</th>
-                                                            <th className="text-left px-4 py-2 font-medium text-slate-700 border-b">Serial No</th>
-                                                            <th className="text-left px-4 py-2 font-medium text-slate-700 border-b">Rows</th>
-                                                            <th className="text-left px-4 py-2 font-medium text-slate-700 border-b">Status</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {sections.map((section, sIdx) => {
-                                                            const sStatus = sectionStatuses[sIdx] || 'pending';
-                                                            return (
-                                                                <tr key={sIdx} className="border-b last:border-b-0 hover:bg-slate-50">
-                                                                    <td className="px-4 py-3 text-slate-600">{sIdx + 1}</td>
-                                                                    <td className="px-4 py-3 font-medium text-slate-800">{section.serialNo || '—'}</td>
-                                                                    <td className="px-4 py-3 text-slate-600">{section.rows.length} row(s)</td>
-                                                                    <td className="px-4 py-3">
+                                            <div className="space-y-4">
+                                                {sections.map((section, sIdx) => {
+                                                    const sStatus = sectionStatuses[sIdx] || 'pending';
+                                                    const rStatus = reviewStatuses[sIdx];
+                                                    const rDesc = reviewDescriptions[sIdx] || '';
+                                                    const descKey = `${assignment.id}-${sIdx}`;
+
+                                                    return (
+                                                        <div key={sIdx} className="border rounded-lg overflow-hidden">
+                                                            {/* Section Header */}
+                                                            <div className="flex items-center justify-between px-4 py-3 bg-slate-50">
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="text-sm font-semibold text-slate-700">#{sIdx + 1}</span>
+                                                                    <span className="text-sm font-medium text-slate-800">Serial No: {section.serialNo || '—'}</span>
+                                                                    <span className="text-xs text-slate-500">({section.rows.length} row{section.rows.length !== 1 ? 's' : ''})</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    {sStatus === 'complete' ? (
+                                                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Vendor: Complete</span>
+                                                                    ) : (
+                                                                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Vendor: Pending</span>
+                                                                    )}
+                                                                    {getReviewBadge(rStatus)}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Section Data Table */}
+                                                            <table className="w-full border-collapse text-sm">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
+                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
+                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
+                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
+                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">knes</th>
+                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Client</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {section.rows.map((row, rIdx) => (
+                                                                        <tr key={rIdx} className="border-b last:border-b-0">
+                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.jobWeldDescription || '—'}</td>
+                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.spotNos || '—'}</td>
+                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.observation || '—'}</td>
+                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.filmSize || '—'}</td>
+                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.knes || '—'}</td>
+                                                                            <td className="px-3 py-1.5">{row.client || '—'}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+
+                                                            {/* Review Actions */}
+                                                            {rStatus ? (
+                                                                <div className={`px-4 py-3 text-sm ${rStatus === 'ok' ? 'bg-green-50' : rStatus === 'retake' ? 'bg-orange-50' : 'bg-red-50'}`}>
+                                                                    <div className="flex items-center justify-between">
                                                                         <div className="flex items-center gap-2">
-                                                                            {sStatus === 'complete' ? (
-                                                                                <>
-                                                                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                                        Complete
-                                                                                    </span>
-                                                                                </>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <CircleDot className="h-4 w-4 text-amber-500" />
-                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                                                                        Pending
-                                                                                    </span>
-                                                                                </>
-                                                                            )}
+                                                                            {getReviewBadge(rStatus)}
+                                                                            {rDesc && <span className="text-slate-600 ml-1">— {rDesc}</span>}
                                                                         </div>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            onClick={() => handleReview(assignment.id, sIdx, null)}
+                                                                            className="text-xs text-slate-500 hover:text-slate-700 h-7"
+                                                                        >
+                                                                            Change
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="px-4 py-3 bg-slate-50 border-t space-y-3">
+                                                                    {/* Description input */}
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-xs font-medium text-slate-600">Description (required for Retake / Repair)</label>
+                                                                        <Input
+                                                                            value={descriptions[descKey] || ''}
+                                                                            onChange={(e) => setDescriptions((prev) => ({ ...prev, [descKey]: e.target.value }))}
+                                                                            placeholder="Enter reason for retake or repair..."
+                                                                            className="h-8 text-sm"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={() => handleReview(assignment.id, sIdx, 'ok')}
+                                                                            className="bg-green-600 hover:bg-green-700 text-white text-xs h-8 gap-1"
+                                                                        >
+                                                                            <CheckCircle2 className="h-3.5 w-3.5" /> OK
+                                                                        </Button>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={() => handleReview(assignment.id, sIdx, 'retake')}
+                                                                            className="bg-orange-500 hover:bg-orange-600 text-white text-xs h-8 gap-1"
+                                                                        >
+                                                                            <RotateCcw className="h-3.5 w-3.5" /> Retake
+                                                                        </Button>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={() => handleReview(assignment.id, sIdx, 'repair')}
+                                                                            className="bg-red-500 hover:bg-red-600 text-white text-xs h-8 gap-1"
+                                                                        >
+                                                                            <Wrench className="h-3.5 w-3.5" /> Repair
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
