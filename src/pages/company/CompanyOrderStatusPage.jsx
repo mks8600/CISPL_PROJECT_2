@@ -188,7 +188,7 @@ export default function CompanyOrderStatusPage() {
                                                                 <div className="flex items-center gap-3">
                                                                     <span className="text-sm font-semibold text-slate-700">#{sIdx + 1}</span>
                                                                     <span className="text-sm font-medium text-slate-800">Serial No: {section.serialNo || '—'}</span>
-                                                                    <span className="text-xs text-slate-500">({section.rows.length} row{section.rows.length !== 1 ? 's' : ''})</span>
+                                                                    <span className="text-xs text-slate-500">({section.rows.map(row => row.spotNos).join(', ') || '—'})</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
                                                                     {sStatus === 'complete' ? (
