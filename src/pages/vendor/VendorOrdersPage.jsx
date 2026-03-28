@@ -40,8 +40,7 @@ export default function VendorOrdersPage() {
     const loadOrders = () => {
         const all = getAssignments();
         // Filter by vendor — match vendorNo to user.vendorId
-        // Exclude reassigned child assignments to prevent duplicates
-        const mine = all.filter((a) => a.vendorNo === user?.vendorId && !a.reassignedFrom);
+        const mine = all.filter((a) => a.vendorNo === user?.vendorId);
         setAssignments(mine);
     };
 
@@ -197,10 +196,6 @@ export default function VendorOrdersPage() {
                                                         <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Film size:</td>
                                                         <td className="border border-slate-400 px-3 py-1.5">{fd.filmSize || '—'}</td>
                                                     </tr>
-                                                    <tr>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">note:</td>
-                                                        <td colSpan={3} className="border border-slate-400 px-3 py-1.5">{fd.note || '—'}</td>
-                                                    </tr>
                                                 </tbody>
                                             </table>
                                         </div>
@@ -229,10 +224,10 @@ export default function VendorOrdersPage() {
                                                                             <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50 w-[15%]">
                                                                                 Serial No:
                                                                             </th>
-                                                                            <th colSpan={3} className="border border-slate-400 px-3 py-1.5 text-left font-medium">
+                                                                            <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-left font-medium">
                                                                                 {section.serialNo || '—'}
                                                                             </th>
-                                                                            <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-right">
+                                                                            <th className="border border-slate-400 px-3 py-1.5 text-right">
                                                                                 {rStatus === 'retake' && (
                                                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                                                                                         <RotateCcw className="h-3 w-3" /> Retake
@@ -257,32 +252,25 @@ export default function VendorOrdersPage() {
                                                                         </tr>
                                                                         {rDesc && (rStatus === 'retake' || rStatus === 'repair') && (
                                                                             <tr>
-                                                                                <td colSpan={6} className={`border border-slate-400 px-3 py-1.5 text-sm ${rStatus === 'retake' ? 'bg-orange-50 text-orange-800' : 'bg-red-50 text-red-800'}`}>
+                                                                                <td colSpan={4} className={`border border-slate-400 px-3 py-1.5 text-sm ${rStatus === 'retake' ? 'bg-orange-50 text-orange-800' : 'bg-red-50 text-red-800'}`}>
                                                                                     <span className="font-medium">Reason:</span> {rDesc}
                                                                                 </td>
                                                                             </tr>
                                                                         )}
                                                                         <tr>
-                                                                            <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
-                                                                            <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
-                                                                            <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
-                                                                            <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
-                                                                            <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Result</th>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">knes</th>
-                                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Client</th>
+                                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
+                                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
+                                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
+                                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
                                                                         {section.rows.map((row, rIdx) => (
                                                                             <tr key={rIdx}>
-                                                                                <td className="border border-slate-400 px-3 py-1.5">{row.jobWeldDescription || '—'}</td>
+                                                                                <td className="border border-slate-400 px-3 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">{row.jobWeldDescription || '—'}</td>
                                                                                 <td className="border border-slate-400 px-3 py-1.5">{row.spotNos || '—'}</td>
                                                                                 <td className="border border-slate-400 px-3 py-1.5">{row.observation || '—'}</td>
                                                                                 <td className="border border-slate-400 px-3 py-1.5">{row.filmSize || '—'}</td>
-                                                                                <td className="border border-slate-400 px-3 py-1.5">{row.knes || '—'}</td>
-                                                                                <td className="border border-slate-400 px-3 py-1.5">{row.client || '—'}</td>
                                                                             </tr>
                                                                         ))}
                                                                     </tbody>

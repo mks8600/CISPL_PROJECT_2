@@ -39,10 +39,35 @@ export default function CompanyOrderStatusPage() {
 
     const loadData = () => {
         const all = getAssignments();
-        // Show accepted + submitted sheets that still have sections needing review
-        // Exclude sheets where all non-reassigned sections are reviewed as "ok" (those go to Completed Works)
-        // Pending and reassigned sections are hidden in the render
-        const readyForReview = all.filter((a) => {
+
+        // Auto-fix legacy data: if a sheet is submitted, any 'pending' sections should be 'complete'
+        let dataChanged = false;
+        const autoFixedAll = all.map(a => {
+            if (a.submitted && a.status === 'accepted') {
+                const sectionStatuses = a.sectionStatuses ? [...a.sectionStatuses] : (a.sheet.sections || []).map(() => 'pending');
+                let changed = false;
+                const newStatuses = sectionStatuses.map(s => {
+                    if (s === 'pending') {
+                        changed = true;
+                        return 'complete';
+                    }
+                    return s;
+                });
+                if (changed) {
+                    dataChanged = true;
+                    return { ...a, sectionStatuses: newStatuses };
+                }
+            }
+            return a;
+        });
+
+        if (dataChanged) {
+            localStorage.setItem(ASSIGNED_KEY, JSON.stringify(autoFixedAll));
+        }
+
+        const validAll = dataChanged ? autoFixedAll : all;
+
+        const readyForReview = validAll.filter((a) => {
             if (a.status !== 'accepted' || !a.submitted) return false;
             const sections = a.sheet.sections || [];
             if (sections.length === 0) return false;
@@ -235,19 +260,15 @@ export default function CompanyOrderStatusPage() {
                                                                         <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
                                                                         <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
                                                                         <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
-                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">knes</th>
-                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Client</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
                                                                     {section.rows.map((row, rIdx) => (
                                                                         <tr key={rIdx} className="border-b last:border-b-0">
-                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.jobWeldDescription || '—'}</td>
+                                                                            <td className="px-3 py-1.5 border-r border-slate-200 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">{row.jobWeldDescription || '—'}</td>
                                                                             <td className="px-3 py-1.5 border-r border-slate-200">{row.spotNos || '—'}</td>
                                                                             <td className="px-3 py-1.5 border-r border-slate-200">{row.observation || '—'}</td>
-                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.filmSize || '—'}</td>
-                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.knes || '—'}</td>
-                                                                            <td className="px-3 py-1.5">{row.client || '—'}</td>
+                                                                            <td className="px-3 py-1.5">{row.filmSize || '—'}</td>
                                                                         </tr>
                                                                     ))}
                                                                 </tbody>

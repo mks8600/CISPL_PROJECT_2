@@ -42,6 +42,7 @@ export default function CompanyOrdersPage() {
   const [selectedSheetId, setSelectedSheetId] = useState('');
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [selectedSections, setSelectedSections] = useState([]);
 
   // Refresh list on focus (in case sheets/vendors were updated in another tab)
   useEffect(() => {
@@ -60,6 +61,11 @@ export default function CompanyOrdersPage() {
       return;
     }
 
+    if (selectedSections.length === 0) {
+      toast.error('Please select at least one item (section) to assign.');
+      return;
+    }
+
     const sheet = sheets.find((s) => s.id === selectedSheetId);
     const vendor = vendors.find((v) => v.id === selectedVendorId);
 
@@ -68,10 +74,15 @@ export default function CompanyOrdersPage() {
       return;
     }
 
+    const filteredSections = (sheet.sections || []).filter((_, idx) => selectedSections.includes(idx));
+
     const assignment = {
       id: `assign-${Date.now()}`,
       sheetId: sheet.id,
-      sheet: sheet,
+      sheet: {
+        ...sheet,
+        sections: filteredSections
+      },
       vendorId: vendor.id,
       vendorNo: vendor.vendorNo,
       vendorName: vendor.vendorName,
@@ -84,7 +95,8 @@ export default function CompanyOrdersPage() {
     setAssignedSheets(updated);
     setSelectedSheetId('');
     setSelectedVendorId('');
-    toast.success(`Sheet assigned to ${vendor.vendorName}!`);
+    setSelectedSections([]);
+    toast.success(`Assigned ${filteredSections.length} items to ${vendor.vendorName}!`);
   };
 
   const handleDeleteAssignment = (assignId) => {
@@ -106,6 +118,41 @@ export default function CompanyOrdersPage() {
       </span>
     );
   };
+
+  const visibleAssignments = assignedSheets.filter((a) => {
+    if (a.status !== 'accepted' || !a.submitted) return true;
+    const statuses = a.sectionStatuses || (a.sheet.sections || []).map(() => 'pending');
+    const reviewStatuses = a.reviewStatuses || (a.sheet.sections || []).map(() => null);
+    if (!statuses || statuses.length === 0) return true;
+    const isCompleted = statuses.every((s, i) => s === 'reassigned' || (s === 'complete' && reviewStatuses[i] === 'ok'));
+    return !isCompleted;
+  });
+
+  const isSheetFullyCompleted = (sheetId) => {
+    const sheet = sheets.find((s) => s.id === sheetId);
+    if (!sheet) return false;
+
+    const okSerials = new Set();
+    assignedSheets.forEach((assignment) => {
+      // Must belong to this root sheet
+      if (assignment.sheetId === sheetId) {
+        const sections = assignment.sheet.sections || [];
+        const sectionStatuses = assignment.sectionStatuses || sections.map(() => 'pending');
+        const reviewStatuses = assignment.reviewStatuses || sections.map(() => null);
+
+        sections.forEach((sec, idx) => {
+          if (sectionStatuses[idx] === 'complete' && reviewStatuses[idx] === 'ok') {
+            if (sec.serialNo) okSerials.add(sec.serialNo);
+          }
+        });
+      }
+    });
+
+    const expectedLength = (sheet.sections || []).length;
+    return expectedLength > 0 && okSerials.size >= expectedLength;
+  };
+
+  const availableSheetsList = sheets.filter((sheet) => !isSheetFullyCompleted(sheet.id));
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -129,18 +176,27 @@ export default function CompanyOrdersPage() {
             {/* Sheet Selector */}
             <div className="flex-1 space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Select Sheet</label>
-              <Select value={selectedSheetId} onValueChange={setSelectedSheetId}>
+              <Select value={selectedSheetId} onValueChange={(val) => {
+                setSelectedSheetId(val);
+                const sheet = sheets.find(s => s.id === val);
+                if (sheet && sheet.sections) {
+                  setSelectedSections(sheet.sections.map((_, i) => i));
+                } else {
+                  setSelectedSections([]);
+                }
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a saved sheet..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {sheets.length === 0 ? (
-                    <SelectItem value="_none" disabled>No saved sheets</SelectItem>
+                  {availableSheetsList.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      No sheets available
+                    </SelectItem>
                   ) : (
-                    sheets.map((sheet) => (
+                    availableSheetsList.map((sheet) => (
                       <SelectItem key={sheet.id} value={sheet.id}>
-                        {sheet.formData.jobNo} — {formatDate(sheet.formData.date)}
-                        {sheet.formData.rsNo && ` (RS: ${sheet.formData.rsNo})`}
+                        <span className="font-semibold text-blue-800">RS No: {sheet.formData.rsNo || 'N/A'}</span> — Job: {sheet.formData.jobNo} ({new Date(sheet.createdAt || sheet.formData.date).toLocaleDateString()}) - {sheet.sections.length} sections
                       </SelectItem>
                     ))
                   )}
@@ -178,6 +234,42 @@ export default function CompanyOrdersPage() {
               Assign
             </Button>
           </div>
+
+          {/* Sections Selector */}
+          {selectedSheetId && selectedSheetId !== '_none' && (
+            <div className="mt-6 border-t pt-4">
+              <label className="text-sm font-medium text-slate-700 mb-2 block">Select Items (Sections) to Assign</label>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                {sheets.find(s => s.id === selectedSheetId)?.sections?.map((section, idx) => (
+                  <label key={idx} className={`flex items-start gap-3 p-3 border rounded-md cursor-pointer transition-colors ${selectedSections.includes(idx) ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-slate-50'}`}>
+                    <input 
+                      type="checkbox" 
+                      className="mt-0.5 h-4 w-4 text-blue-600 rounded border-slate-300"
+                      checked={selectedSections.includes(idx)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSections(prev => [...prev, idx]);
+                        } else {
+                          setSelectedSections(prev => prev.filter(i => i !== idx));
+                        }
+                      }}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-800">
+                        Item {idx + 1} — Serial No: {section.serialNo || 'Unnamed'}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {section.rows?.length || 0} row(s) • Desc: {section.rows?.[0]?.jobWeldDescription || 'None'}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+                {(!sheets.find(s => s.id === selectedSheetId)?.sections || sheets.find(s => s.id === selectedSheetId)?.sections?.length === 0) && (
+                  <p className="text-sm text-slate-500 italic">This sheet has no sections to assign.</p>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -188,7 +280,7 @@ export default function CompanyOrdersPage() {
           <CardDescription>All sheets assigned to vendors</CardDescription>
         </CardHeader>
         <CardContent>
-          {assignedSheets.length === 0 ? (
+          {visibleAssignments.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               <ClipboardList className="h-12 w-12 mx-auto text-slate-300 mb-3" />
               <p>No orders assigned yet.</p>
@@ -196,7 +288,7 @@ export default function CompanyOrdersPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {assignedSheets.map((assignment) => (
+              {visibleAssignments.map((assignment) => (
                 <div
                   key={assignment.id}
                   className="border rounded-lg bg-white overflow-hidden"
@@ -207,15 +299,20 @@ export default function CompanyOrdersPage() {
                     onClick={() => setExpandedId(expandedId === assignment.id ? null : assignment.id)}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded bg-blue-50 flex items-center justify-center text-blue-600">
+                      <div className="h-10 w-10 rounded bg-blue-50 flex shrink-0 items-center justify-center text-blue-600">
                         <ClipboardList className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="font-semibold text-slate-800">
-                          {assignment.sheet.formData.jobNo}
-                          <span className="font-normal text-slate-500 ml-2">— {formatDate(assignment.sheet.formData.date)}</span>
+                        <p className="font-semibold text-slate-800 flex items-center gap-2 flex-wrap">
+                          {assignment.sheet.formData.rsNo && (
+                            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded border border-blue-300 shadow-sm">
+                              RS NO: {assignment.sheet.formData.rsNo}
+                            </span>
+                          )}
+                          <span>{assignment.sheet.formData.jobNo}</span>
+                          <span className="font-normal text-slate-500">— {formatDate(assignment.sheet.formData.date)}</span>
                         </p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-slate-500 mt-0.5">
                           Vendor: <span className="font-medium text-slate-700">{assignment.vendorName}</span> ({assignment.vendorNo})
                         </p>
                       </div>
@@ -256,13 +353,26 @@ export default function CompanyOrdersPage() {
                         <div><span className="text-slate-500">Base Material:</span> <span className="font-medium">{assignment.sheet.formData.baseMaterial || '—'}</span></div>
                       </div>
                       {assignment.sheet.sections && assignment.sheet.sections.length > 0 && (
-                        <div className="mt-3">
-                          <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">Sections ({assignment.sheet.sections.length})</h4>
-                          {assignment.sheet.sections.map((section, i) => (
-                            <div key={i} className="text-sm text-slate-600 mt-1">
-                              Serial No: <span className="font-medium">{section.serialNo || '—'}</span> — {section.rows.length} row(s)
-                            </div>
-                          ))}
+                        <div className="mt-4">
+                          <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">Sections ({assignment.sheet.sections.length})</h4>
+                          <div className="space-y-3">
+                            {assignment.sheet.sections.map((section, i) => (
+                              <div key={i} className="text-sm text-slate-700 bg-white border rounded-md p-3 shadow-sm">
+                                <div className="font-medium flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
+                                  <span>Serial No: {section.serialNo || '—'}</span>
+                                  <span className="text-xs font-normal text-slate-500">{section.rows.length} row(s)</span>
+                                </div>
+                                <div className="space-y-2">
+                                  {section.rows.map((row, rIdx) => (
+                                    <div key={rIdx} className="bg-amber-100 text-amber-900 px-3 py-2 rounded-md font-semibold border border-amber-200 shadow-sm flex flex-col gap-0.5">
+                                      <span className="text-[10px] text-amber-700 uppercase tracking-widest font-bold">Job/Weld Description</span>
+                                      <span className="text-sm">{row.jobWeldDescription || '—'}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>

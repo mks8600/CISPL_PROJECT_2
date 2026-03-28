@@ -32,9 +32,8 @@ export default function VendorOrderProgressPage() {
 
     const loadOrders = () => {
         const all = getAssignments();
-        // Exclude reassigned child assignments to prevent duplicates
         const accepted = all.filter(
-            (a) => a.vendorNo === user?.vendorId && a.status === 'accepted' && !a.reassignedFrom
+            (a) => a.vendorNo === user?.vendorId && a.status === 'accepted'
         );
         setAcceptedOrders(accepted);
     };
@@ -68,7 +67,9 @@ export default function VendorOrderProgressPage() {
         const all = getAssignments();
         const updated = all.map((a) => {
             if (a.id === assignmentId) {
-                return { ...a, submitted: true, submittedAt: new Date().toISOString() };
+                const sectionStatuses = a.sectionStatuses ? [...a.sectionStatuses] : a.sheet.sections.map(() => 'pending');
+                const completedStatuses = sectionStatuses.map(s => s === 'pending' ? 'complete' : s);
+                return { ...a, submitted: true, submittedAt: new Date().toISOString(), sectionStatuses: completedStatuses };
             }
             return a;
         });
@@ -138,6 +139,11 @@ export default function VendorOrderProgressPage() {
                                         <span className="text-xs text-slate-600 font-medium bg-slate-100 px-2 py-1 rounded">
                                             {completedCount}/{totalSections} Complete
                                         </span>
+                                        {assignment.reassignedFrom && (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                                Reassigned
+                                            </span>
+                                        )}
                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                             Accepted
                                         </span>
@@ -198,10 +204,6 @@ export default function VendorOrderProgressPage() {
                                                         <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Film size:</td>
                                                         <td className="border border-slate-400 px-3 py-1.5">{fd.filmSize || '—'}</td>
                                                     </tr>
-                                                    <tr>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">note:</td>
-                                                        <td colSpan={3} className="border border-slate-400 px-3 py-1.5">{fd.note || '—'}</td>
-                                                    </tr>
                                                 </tbody>
                                             </table>
                                         </div>
@@ -220,8 +222,8 @@ export default function VendorOrderProgressPage() {
                                                             <thead>
                                                                 <tr>
                                                                     <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50 w-[15%]">Serial No:</th>
-                                                                    <th colSpan={3} className="border border-slate-400 px-3 py-1.5 text-left font-medium">{section.serialNo || '—'}</th>
-                                                                    <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-right">
+                                                                    <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-left font-medium">{section.serialNo || '—'}</th>
+                                                                    <th className="border border-slate-400 px-3 py-1.5 text-right">
                                                                         <div className="flex items-center justify-end gap-2">
                                                                             {sStatus === 'pending' ? (
                                                                                 <Button
@@ -252,7 +254,7 @@ export default function VendorOrderProgressPage() {
                                                                 </tr>
                                                                 {/* Company Review Badge Row */}
                                                                 <tr>
-                                                                    <th colSpan={6} className={`border border-slate-400 px-3 py-1.5 text-left text-xs ${
+                                                                    <th colSpan={4} className={`border border-slate-400 px-3 py-1.5 text-left text-xs ${
                                                                         rStatus === 'ok' ? 'bg-green-50' :
                                                                         rStatus === 'retake' ? 'bg-orange-50' :
                                                                         rStatus === 'repair' ? 'bg-red-50' :
@@ -287,26 +289,19 @@ export default function VendorOrderProgressPage() {
                                                                     </th>
                                                                 </tr>
                                                                 <tr>
-                                                                    <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
-                                                                    <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
-                                                                    <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
-                                                                    <th rowSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
-                                                                    <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Result</th>
-                                                                </tr>
-                                                                <tr>
-                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">knes</th>
-                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Client</th>
+                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
+                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
+                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
+                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                                 {section.rows.map((row, rIdx) => (
                                                                     <tr key={rIdx}>
-                                                                        <td className="border border-slate-400 px-3 py-1.5">{row.jobWeldDescription || '—'}</td>
+                                                                        <td className="border border-slate-400 px-3 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">{row.jobWeldDescription || '—'}</td>
                                                                         <td className="border border-slate-400 px-3 py-1.5">{row.spotNos || '—'}</td>
                                                                         <td className="border border-slate-400 px-3 py-1.5">{row.observation || '—'}</td>
                                                                         <td className="border border-slate-400 px-3 py-1.5">{row.filmSize || '—'}</td>
-                                                                        <td className="border border-slate-400 px-3 py-1.5">{row.knes || '—'}</td>
-                                                                        <td className="border border-slate-400 px-3 py-1.5">{row.client || '—'}</td>
                                                                     </tr>
                                                                 ))}
                                                             </tbody>
