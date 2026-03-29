@@ -36,11 +36,15 @@ export default function CompanyLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Header portalType="company" />
+    <div className="min-h-screen bg-slate-100 print:bg-white">
+      <div className="print:hidden">
+        <Header portalType="company" />
+      </div>
       <div className="flex">
-        <Sidebar portalType="company" />
-        <main className="flex-1 p-6">
+        <div className="print:hidden">
+          <Sidebar portalType="company" />
+        </div>
+        <main className="flex-1 p-6 print:p-0">
           <Outlet />
         </main>
       </div>

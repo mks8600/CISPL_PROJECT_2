@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -213,11 +213,10 @@ export default function CompanyOrderStatusPage() {
                                 {isExpanded && (
                                     <div className="border-t px-4 py-4">
                                         {/* Sheet Info */}
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4 p-3 bg-slate-50 rounded-lg">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4 p-3 bg-slate-50 rounded-lg">
                                             <div><span className="text-slate-500">Job No:</span> <span className="font-medium">{fd.jobNo}</span></div>
                                             <div><span className="text-slate-500">Date:</span> <span className="font-medium">{formatDate(fd.date)}</span></div>
                                             <div><span className="text-slate-500">RS No:</span> <span className="font-medium">{fd.rsNo || '—'}</span></div>
-                                            <div><span className="text-slate-500">Technique:</span> <span className="font-medium">{fd.technique || '—'}</span></div>
                                         </div>
 
                                         {/* Sections */}
@@ -253,24 +252,68 @@ export default function CompanyOrderStatusPage() {
                                                             </div>
 
                                                             {/* Section Data Table */}
-                                                            <table className="w-full border-collapse text-sm">
+                                                            <table className="w-full border-collapse border-y border-slate-400 text-sm">
                                                                 <thead>
                                                                     <tr>
-                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
-                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
-                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
-                                                                        <th className="border-t border-b border-slate-300 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
+                                                                        <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-left w-[25%] text-slate-700 shadow-sm">WELD IDENTIFICATION</th>
+                                                                        <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-16 text-slate-700 shadow-sm">SPOT NO</th>
+                                                                        <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-20 text-slate-700 shadow-sm">FILM SIZE</th>
+                                                                        <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">OBSERVATION</th>
+                                                                        <th className="border-y border-slate-400 px-2 py-1 bg-slate-100 text-left text-slate-700 shadow-sm">REMARKS</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
-                                                                    {section.rows.map((row, rIdx) => (
-                                                                        <tr key={rIdx} className="border-b last:border-b-0">
-                                                                            <td className="px-3 py-1.5 border-r border-slate-200 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">{row.jobWeldDescription || '—'}</td>
-                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.spotNos || '—'}</td>
-                                                                            <td className="px-3 py-1.5 border-r border-slate-200">{row.observation || '—'}</td>
-                                                                            <td className="px-3 py-1.5">{row.filmSize || '—'}</td>
-                                                                        </tr>
-                                                                    ))}
+                                                                    {section.rows.map((row, rIdx) => {
+                                                                        const vData = (assignment.vendorData && assignment.vendorData[sIdx] && assignment.vendorData[sIdx][rIdx]) || { spotNo: '', filmSize: '', observations: [], remark: '' };
+                                                                        const obsCount = Math.max(1, vData.observations.length);
+                                                                        
+                                                                        return (
+                                                                            <React.Fragment key={rIdx}>
+                                                                                <tr className="border-b border-slate-300">
+                                                                                    <td rowSpan={obsCount} className="border-r border-slate-400 px-2 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">
+                                                                                        {row.jobWeldDescription || '—'}
+                                                                                    </td>
+                                                                                    <td rowSpan={obsCount} className="border-r border-slate-400 p-2 text-center align-middle font-medium bg-slate-50">
+                                                                                        {vData.spotNo || '—'}
+                                                                                    </td>
+                                                                                    <td rowSpan={obsCount} className="border-r border-slate-400 p-2 text-center align-middle font-medium bg-slate-50">
+                                                                                        {vData.filmSize || '—'}
+                                                                                    </td>
+                                                                                    
+                                                                                    {vData.observations.length > 0 ? (
+                                                                                        <>
+                                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{vData.observations[0].label}</td>
+                                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-medium text-slate-800 border-b border-slate-200">
+                                                                                                {vData.observations[0].value || '—'}
+                                                                                                {vData.observations[0].status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
+                                                                                            </td>
+                                                                                            <td rowSpan={obsCount} className="p-2 text-slate-700 whitespace-pre-wrap align-top bg-white w-48 font-medium">
+                                                                                                {vData.remark !== undefined ? vData.remark : (row.remark || '—')}
+                                                                                            </td>
+                                                                                        </>
+                                                                                    ) : (
+                                                                                        <>
+                                                                                            <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 text-slate-400 text-xs">N/A</td>
+                                                                                            <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-20 text-slate-400 text-xs">N/A</td>
+                                                                                            <td rowSpan={obsCount} className="p-2 text-slate-500 whitespace-pre-wrap align-top bg-white w-48 italic">
+                                                                                                {vData.remark !== undefined ? vData.remark : (row.remark || '—')}
+                                                                                            </td>
+                                                                                        </>
+                                                                                    )}
+                                                                                </tr>
+                                                                                
+                                                                                {vData.observations.slice(1).map((obs, offsetIdx) => (
+                                                                                    <tr key={offsetIdx + 1} className="border-b border-slate-200 last:border-b-0">
+                                                                                        <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium">{obs.label}</td>
+                                                                                        <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-medium text-slate-800">
+                                                                                            {obs.value || '—'}
+                                                                                            {obs.status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </React.Fragment>
+                                                                        );
+                                                                    })}
                                                                 </tbody>
                                                             </table>
 

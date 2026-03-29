@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronUp, CheckCircle2, Printer } from 'lucide-react';
 
 const ASSIGNED_KEY = 'crystal_assigned_sheets';
 
@@ -47,7 +48,11 @@ function collectAllSections(assignmentId, allAssignments) {
             // Only add if we haven't seen this serial number yet
             if (section.serialNo && !seenSerials.has(section.serialNo)) {
                 seenSerials.add(section.serialNo);
-                result.push({ section, reviewStatus: reviewStatuses[idx] });
+                result.push({ 
+                    section, 
+                    reviewStatus: reviewStatuses[idx],
+                    vDataMap: assignment.vendorData ? assignment.vendorData[idx] : null
+                });
             }
         });
 
@@ -120,7 +125,7 @@ export default function CompanyCompletedWorkPage() {
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-12">
             {/* Header */}
-            <div>
+            <div className="print:hidden">
                 <div className="flex items-center gap-2 mb-2">
                     <CheckCircle2 className="h-6 w-6 text-green-600" />
                     <h1 className="text-2xl font-bold text-slate-900">Completed Works</h1>
@@ -147,10 +152,15 @@ export default function CompanyCompletedWorkPage() {
                         const allSections = assignment.resolvedSections || [];
 
                         return (
-                            <Card key={assignment.id} className="overflow-hidden border-green-200">
+                            <Card 
+                                key={assignment.id} 
+                                className={`overflow-hidden border-green-200 transition-all ${
+                                    expandedId && !isExpanded ? 'print:hidden' : ''
+                                } ${isExpanded ? 'print:border-0 print:shadow-none bg-transparent' : ''}`}
+                            >
                                 {/* Summary */}
                                 <div
-                                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-green-50/50 transition-colors"
+                                    className={`flex items-center justify-between p-4 cursor-pointer hover:bg-green-50/50 transition-colors ${isExpanded ? 'print:hidden' : ''}`}
                                     onClick={() => setExpandedId(isExpanded ? null : assignment.id)}
                                 >
                                     <div className="flex items-center gap-4">
@@ -179,20 +189,23 @@ export default function CompanyCompletedWorkPage() {
 
                                 {/* Expanded — Full Details */}
                                 {isExpanded && (
-                                    <div className="border-t">
+                                    <div className="border-t print:border-t-0 p-0">
                                         {/* Sheet Info */}
-                                        <div className="p-4">
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4 p-3 bg-green-50 rounded-lg">
-                                                <div><span className="text-slate-500">Job No:</span> <span className="font-medium">{fd.jobNo}</span></div>
-                                                <div><span className="text-slate-500">Date:</span> <span className="font-medium">{formatDate(fd.date)}</span></div>
-                                                <div><span className="text-slate-500">Vendor:</span> <span className="font-medium">{assignment.vendorName}</span></div>
-                                                <div><span className="text-slate-500">RS No:</span> <span className="font-medium">{fd.rsNo || '—'}</span></div>
-                                                <div><span className="text-slate-500">Technique:</span> <span className="font-medium">{fd.technique || '—'}</span></div>
-                                                <div><span className="text-slate-500">Radiation Source:</span> <span className="font-medium">{fd.radiationSource || '—'}</span></div>
-                                                <div><span className="text-slate-500">X Ray:</span> <span className="font-medium">{fd.xRay || '—'}</span></div>
-                                                <div><span className="text-slate-500">Film Size:</span> <span className="font-medium">{fd.filmSize || '—'}</span></div>
-                                                <div><span className="text-slate-500">Base Material:</span> <span className="font-medium">{fd.baseMaterial || '—'}</span></div>
+                                        <div className="p-4 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                                            <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm p-4 bg-green-50 rounded-lg print:border print:border-slate-300 print:bg-white print:mb-4">
+                                                <div><span className="text-slate-500">Job No:</span> <span className="font-semibold text-slate-900 ml-1">{fd.jobNo}</span></div>
+                                                <div><span className="text-slate-500">Date:</span> <span className="font-semibold text-slate-900 ml-1">{formatDate(fd.date)}</span></div>
+                                                <div><span className="text-slate-500">Vendor:</span> <span className="font-semibold text-slate-900 ml-1">{assignment.vendorName}</span></div>
+                                                <div><span className="text-slate-500">RS No:</span> <span className="font-semibold text-slate-900 ml-1">{fd.rsNo || '—'}</span></div>
                                             </div>
+                                            <Button 
+                                                onClick={() => window.print()}
+                                                variant="outline" 
+                                                className="print:hidden shrink-0 flex items-center gap-2 border-slate-300 hover:bg-slate-50"
+                                            >
+                                                <Printer className="h-4 w-4" />
+                                                Export PDF
+                                            </Button>
                                         </div>
 
                                         {/* All Resolved Sections */}
@@ -202,29 +215,75 @@ export default function CompanyCompletedWorkPage() {
                                                     <thead>
                                                         <tr>
                                                             <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-green-50 w-[15%]">Serial No:</th>
-                                                            <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-left font-medium">{item.section.serialNo || '—'}</th>
-                                                            <th className="border border-slate-400 px-3 py-1.5 text-right">
+                                                            <th className="border border-slate-400 px-3 py-1.5 text-left font-medium" colSpan={5}>
+                                                              <div className="flex items-center justify-between">
+                                                                <span>{item.section.serialNo || '—'}</span>
                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                                                     <CheckCircle2 className="h-3 w-3" /> OK
                                                                 </span>
+                                                              </div>
                                                             </th>
                                                         </tr>
                                                         <tr>
-                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
-                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
-                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
-                                                            <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
+                                                            <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-left w-[25%] text-slate-700 shadow-sm">WELD IDENTIFICATION</th>
+                                                            <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-16 text-slate-700 shadow-sm">SPOT NO</th>
+                                                            <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-20 text-slate-700 shadow-sm">FILM SIZE</th>
+                                                            <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">OBSERVATION</th>
+                                                            <th className="border-y border-slate-400 px-2 py-1 bg-slate-100 text-left text-slate-700 shadow-sm">REMARKS</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {item.section.rows.map((row, rIdx) => (
-                                                            <tr key={rIdx}>
-                                                                <td className="border border-slate-400 px-3 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">{row.jobWeldDescription || '—'}</td>
-                                                                <td className="border border-slate-400 px-3 py-1.5">{row.spotNos || '—'}</td>
-                                                                <td className="border border-slate-400 px-3 py-1.5">{row.observation || '—'}</td>
-                                                                <td className="border border-slate-400 px-3 py-1.5">{row.filmSize || '—'}</td>
-                                                            </tr>
-                                                        ))}
+                                                        {item.section.rows.map((row, rIdx) => {
+                                                            const vData = (item.vDataMap && item.vDataMap[rIdx]) || { spotNo: '', filmSize: '', observations: [], remark: '' };
+                                                            const obsCount = Math.max(1, vData.observations.length);
+                                                            
+                                                            return (
+                                                                <React.Fragment key={rIdx}>
+                                                                    <tr className="border-b border-slate-300">
+                                                                        <td rowSpan={obsCount} className="border-r border-slate-400 px-2 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">
+                                                                            {row.jobWeldDescription || '—'}
+                                                                        </td>
+                                                                        <td rowSpan={obsCount} className="border-r border-slate-400 p-2 text-center align-middle font-medium bg-slate-50">
+                                                                            {vData.spotNo || '—'}
+                                                                        </td>
+                                                                        <td rowSpan={obsCount} className="border-r border-slate-400 p-2 text-center align-middle font-medium bg-slate-50">
+                                                                            {vData.filmSize || '—'}
+                                                                        </td>
+                                                                        
+                                                                        {vData.observations.length > 0 ? (
+                                                                            <>
+                                                                                <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{vData.observations[0].label}</td>
+                                                                                <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-medium text-slate-800 border-b border-slate-200">
+                                                                                    {vData.observations[0].value || '—'}
+                                                                                    {vData.observations[0].status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
+                                                                                </td>
+                                                                                <td rowSpan={obsCount} className="p-2 text-slate-700 whitespace-pre-wrap align-top bg-white w-48 font-medium">
+                                                                                    {vData.remark !== undefined ? vData.remark : (row.remark || '—')}
+                                                                                </td>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 text-slate-400 text-xs">N/A</td>
+                                                                                <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-20 text-slate-400 text-xs">N/A</td>
+                                                                                <td rowSpan={obsCount} className="p-2 text-slate-500 whitespace-pre-wrap align-top bg-white w-48 italic">
+                                                                                    {vData.remark !== undefined ? vData.remark : (row.remark || '—')}
+                                                                                </td>
+                                                                            </>
+                                                                        )}
+                                                                    </tr>
+                                                                    
+                                                                    {vData.observations.slice(1).map((obs, offsetIdx) => (
+                                                                        <tr key={offsetIdx + 1} className="border-b border-slate-200 last:border-b-0">
+                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium">{obs.label}</td>
+                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-medium text-slate-800">
+                                                                                {obs.value || '—'}
+                                                                                {obs.status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
                                                     </tbody>
                                                 </table>
                                             ))}
@@ -232,9 +291,9 @@ export default function CompanyCompletedWorkPage() {
 
                                         {/* Submitted info */}
                                         {assignment.submittedAt && (
-                                            <div className="border-t px-4 py-3 bg-green-50 text-sm text-green-700 flex items-center gap-2">
-                                                <CheckCircle2 className="h-4 w-4" />
-                                                <span>Submitted on {formatDate(assignment.submittedAt)}</span>
+                                            <div className="border-t print:border-0 px-4 py-3 bg-green-50 print:bg-white text-sm text-green-700 print:text-slate-500 flex items-center gap-2">
+                                                <CheckCircle2 className="h-4 w-4 print:hidden" />
+                                                <span className="print:italic">Submitted to Company Portal on {formatDate(assignment.submittedAt)}</span>
                                             </div>
                                         )}
                                     </div>

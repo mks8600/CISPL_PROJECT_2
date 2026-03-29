@@ -18,7 +18,7 @@ function createEmptySection(initialSerial = '') {
     id: Date.now(),
     serialNo: initialSerial,
     rows: [
-      { jobWeldDescription: '', spotNos: '', observation: '', filmSize: '' },
+      { jobWeldDescription: '', remark: '' },
     ],
   };
 }
@@ -27,17 +27,15 @@ function getEmptyFormData() {
   return {
     rsNo: '',
     date: '',
-    radiationSource: '',
-    xRay: '',
     jobNo: '',
-    weldReinforcement: '',
+    descriptionTagNo: '',
+    offeredBy: 'CISPL',
     baseMaterial: '',
     baseMetal: '',
     qiLocation: '',
     filmSide: '',
     iqiType: '',
     technique: '',
-    filmSize: '',
   };
 }
 
@@ -104,7 +102,7 @@ export default function CreateOrderPage() {
   const addRowToSection = (sectionIndex) => {
     setSections((prev) => {
       const updated = [...prev];
-      const rows = [...updated[sectionIndex].rows, { jobWeldDescription: '', spotNos: '', observation: '', filmSize: '' }];
+      const rows = [...updated[sectionIndex].rows, { jobWeldDescription: '', remark: '' }];
       updated[sectionIndex] = { ...updated[sectionIndex], rows };
       return updated;
     });
@@ -342,33 +340,22 @@ export default function CreateOrderPage() {
         <tbody>
           {/* RS NO. | Date */}
           <tr>
-            <td className="border border-slate-400 px-3 py-1.5 font-medium text-yellow-900 w-[15%] bg-yellow-200">RS NO.:</td>
-            <td className="border border-slate-400 px-2 py-1 w-[35%] bg-yellow-50">
-              <Input value={formData.rsNo} onChange={(e) => handleChange('rsNo', e.target.value)} className={`${inputClass} bg-yellow-50 font-semibold`} />
+            <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 w-[15%] bg-yellow-200">RS NO.:</td>
+            <td className="border border-slate-400 px-2 py-1 w-[35%]">
+              <Input value={formData.rsNo} onChange={(e) => handleChange('rsNo', e.target.value)} className={inputClass} />
             </td>
-            <td className="border border-slate-400 px-3 py-1.5 font-medium text-yellow-900 w-[15%] bg-yellow-200">Date:</td>
-            <td className="border border-slate-400 px-2 py-1 w-[35%] bg-yellow-50">
-              <Input type="date" value={formData.date} onChange={(e) => handleChange('date', e.target.value)} className={`${inputClass} bg-yellow-50 font-semibold`} />
-            </td>
-          </tr>
-          {/* radiation source | X ray */}
-          <tr>
-            <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">radiation source.:</td>
-            <td className="border border-slate-400 px-2 py-1">
-              <Input value={formData.radiationSource} onChange={(e) => handleChange('radiationSource', e.target.value)} className={inputClass} />
-            </td>
-            <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">X ray:</td>
-            <td className="border border-slate-400 px-2 py-1">
-              <Input value={formData.xRay} onChange={(e) => handleChange('xRay', e.target.value)} className={inputClass} />
+            <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 w-[15%] bg-yellow-200">Date:</td>
+            <td className="border border-slate-400 px-2 py-1 w-[35%]">
+              <Input type="date" value={formData.date} onChange={(e) => handleChange('date', e.target.value)} className={inputClass} />
             </td>
           </tr>
-          {/* Job no. | weld reinforcement */}
+          {/* Job no. */}
           <tr>
-            <td className="border border-slate-400 px-3 py-1.5 font-medium text-yellow-900 bg-yellow-200">Job no.:</td>
-            <td className="border border-slate-400 px-2 py-1 bg-yellow-50">
+            <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 bg-yellow-200">Job no.:</td>
+            <td colSpan={3} className="border border-slate-400 px-2 py-1">
               {jobsList.length > 0 ? (
                 <Select value={formData.jobNo} onValueChange={(value) => handleChange('jobNo', value)}>
-                  <SelectTrigger className="border-0 shadow-none h-8 rounded-none focus:ring-0 px-1 bg-yellow-50 font-semibold">
+                  <SelectTrigger className="border-0 shadow-none h-8 rounded-none focus:ring-0 px-1 w-full md:w-1/2">
                     <SelectValue placeholder="Select job no." />
                   </SelectTrigger>
                   <SelectContent>
@@ -380,16 +367,22 @@ export default function CreateOrderPage() {
                   </SelectContent>
                 </Select>
               ) : (
-                <Input value={formData.jobNo} onChange={(e) => handleChange('jobNo', e.target.value)} className={`${inputClass} bg-yellow-50 font-semibold`} placeholder="No jobs available" />
+                <Input value={formData.jobNo} onChange={(e) => handleChange('jobNo', e.target.value)} className={`${inputClass} w-full md:w-1/2`} placeholder="No jobs available" />
               )}
             </td>
-            <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">weld reinforcement:</td>
-            <td className="border border-slate-400 px-2 py-1">
-              <Input value={formData.weldReinforcement} onChange={(e) => handleChange('weldReinforcement', e.target.value)} className={inputClass} />
+          </tr>
+          {/* Description / Tag no */}
+          <tr>
+            <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 bg-yellow-200">Description / Tag no:</td>
+            <td colSpan={3} className="border border-slate-400 px-2 py-1">
+              <Input
+                value={formData.descriptionTagNo || ''}
+                onChange={(e) => handleChange('descriptionTagNo', e.target.value)}
+                className={`${inputClass} w-full`}
+                placeholder="Enter description or tag no."
+              />
             </td>
           </tr>
-
-
         </tbody>
       </table>
 
@@ -403,7 +396,7 @@ export default function CreateOrderPage() {
                 <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50 w-[15%]">
                   Serial No:
                 </th>
-                <th colSpan={4} className="border border-slate-400 px-2 py-1 text-left">
+                <th colSpan={2} className="border border-slate-400 px-2 py-1 text-left">
                   <div className="flex items-center justify-between">
                     <Input
                       value={section.serialNo}
@@ -426,17 +419,11 @@ export default function CreateOrderPage() {
               </tr>
               {/* Column headers */}
               <tr>
-                <th className="border border-slate-400 px-3 py-1.5 text-center font-bold text-yellow-900 bg-yellow-200">
+                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100 w-[70%]">
                   Job/Weld Description
                 </th>
                 <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">
-                  Spot Nos
-                </th>
-                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">
-                  Observation
-                </th>
-                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">
-                  Film Size
+                  Remark
                 </th>
                 <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100 w-10">
                 </th>
@@ -445,30 +432,11 @@ export default function CreateOrderPage() {
             <tbody>
               {section.rows.map((row, rowIndex) => (
                 <tr key={rowIndex}>
-                  <td className="border border-slate-400 px-2 py-1 bg-yellow-50">
-                    <Input value={row.jobWeldDescription} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'jobWeldDescription', e.target.value)} className={`${inputClass} font-semibold text-yellow-950 bg-yellow-100 border-l-4 border-l-yellow-500 hover:bg-yellow-100`} />
+                  <td className="border border-slate-400 px-2 py-1">
+                    <Input value={row.jobWeldDescription} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'jobWeldDescription', e.target.value)} className={inputClass} />
                   </td>
                   <td className="border border-slate-400 px-2 py-1">
-                    <Input value={row.spotNos} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'spotNos', e.target.value)} className={inputClass} />
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1">
-                    <Input value={row.observation} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'observation', e.target.value)} className={inputClass} />
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1">
-                    <Select value={row.filmSize} onValueChange={(val) => handleRowChange(sectionIndex, rowIndex, 'filmSize', val)}>
-                      <SelectTrigger className="border-0 shadow-none h-8 rounded-none focus:ring-0 px-1">
-                        <SelectValue placeholder="Select size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filmSizesList.length === 0 ? (
-                          <SelectItem value="_none" disabled>No sizes — add from Dashboard</SelectItem>
-                        ) : (
-                          filmSizesList.map((size) => (
-                            <SelectItem key={size} value={size}>{size}</SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    <Input value={row.remark || ''} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'remark', e.target.value)} className={inputClass} placeholder="Add a remark..." />
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center font-medium text-slate-700 bg-slate-50">
                       {section.rows.length > 1 && (
@@ -503,8 +471,31 @@ export default function CreateOrderPage() {
         </div>
       ))}
 
+      {/* ===== Offered By ===== */}
+      <div className="flex justify-start pt-2">
+        <table className="w-full sm:w-1/2 md:w-1/3 border-collapse text-sm">
+          <tbody>
+            <tr>
+              <td className="border border-slate-400 px-3 py-1.5 font-bold text-center text-yellow-900 bg-yellow-200 w-[40%]">
+                OFFERED BY
+              </td>
+              <td className="border border-slate-400 px-2 py-1 bg-white">
+                <Select value={formData.offeredBy || 'CISPL'} onValueChange={(val) => handleChange('offeredBy', val)}>
+                  <SelectTrigger className="border-0 shadow-none h-8 rounded-none focus:ring-0 px-1 w-full font-semibold">
+                    <SelectValue placeholder="Select offered by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CISPL">CISPL</SelectItem>
+                  </SelectContent>
+                </Select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       {/* ===== Bottom Buttons: Add Section + Save ===== */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pt-4">
         <Button
           type="button"
           variant="outline"

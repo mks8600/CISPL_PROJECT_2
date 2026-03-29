@@ -44,15 +44,16 @@ export default function CompanyOrdersPage() {
   const [expandedId, setExpandedId] = useState(null);
   const [selectedSections, setSelectedSections] = useState([]);
 
-  // Refresh list on focus (in case sheets/vendors were updated in another tab)
+  // Refresh list on mount and on focus (in case sheets/vendors were updated in another tab)
   useEffect(() => {
-    const onFocus = () => {
+    const loadData = () => {
       setSheets(getFromStorage(SHEETS_KEY));
       setVendors(getFromStorage(VENDORS_KEY));
       setAssignedSheets(getFromStorage(ASSIGNED_KEY));
     };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    loadData(); // load on mount
+    window.addEventListener('focus', loadData);
+    return () => window.removeEventListener('focus', loadData);
   }, []);
 
   const handleAssign = () => {
@@ -130,29 +131,33 @@ export default function CompanyOrdersPage() {
 
   const isSheetFullyCompleted = (sheetId) => {
     const sheet = sheets.find((s) => s.id === sheetId);
-    if (!sheet) return false;
+    if (!sheet || !sheet.sections) return false;
 
-    const okSerials = new Set();
+    const completedSectionsIndices = new Set();
     assignedSheets.forEach((assignment) => {
-      // Must belong to this root sheet
       if (assignment.sheetId === sheetId) {
+        // We match assignments by tracking which indices of the original sheet were assigned
+        // In this app, assignments carry a 'sections' array which are slices of the original
+        // But for filtering, we can check if the assigned section's serialNo matches
         const sections = assignment.sheet.sections || [];
         const sectionStatuses = assignment.sectionStatuses || sections.map(() => 'pending');
         const reviewStatuses = assignment.reviewStatuses || sections.map(() => null);
 
         sections.forEach((sec, idx) => {
           if (sectionStatuses[idx] === 'complete' && reviewStatuses[idx] === 'ok') {
-            if (sec.serialNo) okSerials.add(sec.serialNo);
+            // Find which index this corresponds to in the root sheet
+            const rootIdx = sheet.sections.findIndex(rs => rs.serialNo === sec.serialNo);
+            if (rootIdx !== -1) completedSectionsIndices.add(rootIdx);
           }
         });
       }
     });
 
-    const expectedLength = (sheet.sections || []).length;
-    return expectedLength > 0 && okSerials.size >= expectedLength;
+    const expectedLength = sheet.sections.length;
+    return expectedLength > 0 && completedSectionsIndices.size >= expectedLength;
   };
 
-  const availableSheetsList = sheets.filter((sheet) => !isSheetFullyCompleted(sheet.id));
+  const availableSheetsList = sheets;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -178,9 +183,13 @@ export default function CompanyOrdersPage() {
               <label className="text-sm font-medium text-slate-700">Select Sheet</label>
               <Select value={selectedSheetId} onValueChange={(val) => {
                 setSelectedSheetId(val);
-                const sheet = sheets.find(s => s.id === val);
-                if (sheet && sheet.sections) {
-                  setSelectedSections(sheet.sections.map((_, i) => i));
+                if (val && val !== 'none') {
+                  const sheet = sheets.find(s => s.id === val);
+                  if (sheet && sheet.sections) {
+                    setSelectedSections(sheet.sections.map((_, i) => i));
+                  } else {
+                    setSelectedSections([]);
+                  }
                 } else {
                   setSelectedSections([]);
                 }
@@ -196,7 +205,7 @@ export default function CompanyOrdersPage() {
                   ) : (
                     availableSheetsList.map((sheet) => (
                       <SelectItem key={sheet.id} value={sheet.id}>
-                        <span className="font-semibold text-blue-800">RS No: {sheet.formData.rsNo || 'N/A'}</span> — Job: {sheet.formData.jobNo} ({new Date(sheet.createdAt || sheet.formData.date).toLocaleDateString()}) - {sheet.sections.length} sections
+                        <span className="font-semibold text-blue-800">RS No: {sheet.formData?.rsNo || 'N/A'}</span> — Job: {sheet.formData?.jobNo || 'N/A'} ({new Date(sheet.createdAt || sheet.formData?.date || Date.now()).toLocaleDateString()}) - {sheet.sections?.length || 0} sections
                       </SelectItem>
                     ))
                   )}
@@ -236,7 +245,7 @@ export default function CompanyOrdersPage() {
           </div>
 
           {/* Sections Selector */}
-          {selectedSheetId && selectedSheetId !== '_none' && (
+          {selectedSheetId && selectedSheetId !== 'none' && (
             <div className="mt-6 border-t pt-4">
               <label className="text-sm font-medium text-slate-700 mb-2 block">Select Items (Sections) to Assign</label>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
@@ -342,15 +351,10 @@ export default function CompanyOrdersPage() {
                   {expandedId === assignment.id && (
                     <div className="border-t px-4 py-3 bg-slate-50">
                       <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">Sheet Details</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                         <div><span className="text-slate-500">RS No:</span> <span className="font-medium">{assignment.sheet.formData.rsNo || '—'}</span></div>
                         <div><span className="text-slate-500">Date:</span> <span className="font-medium">{formatDate(assignment.sheet.formData.date)}</span></div>
                         <div><span className="text-slate-500">Job No:</span> <span className="font-medium">{assignment.sheet.formData.jobNo}</span></div>
-                        <div><span className="text-slate-500">Radiation Source:</span> <span className="font-medium">{assignment.sheet.formData.radiationSource || '—'}</span></div>
-                        <div><span className="text-slate-500">X Ray:</span> <span className="font-medium">{assignment.sheet.formData.xRay || '—'}</span></div>
-                        <div><span className="text-slate-500">Technique:</span> <span className="font-medium">{assignment.sheet.formData.technique || '—'}</span></div>
-                        <div><span className="text-slate-500">Film Size:</span> <span className="font-medium">{assignment.sheet.formData.filmSize || '—'}</span></div>
-                        <div><span className="text-slate-500">Base Material:</span> <span className="font-medium">{assignment.sheet.formData.baseMaterial || '—'}</span></div>
                       </div>
                       {assignment.sheet.sections && assignment.sheet.sections.length > 0 && (
                         <div className="mt-4">
@@ -365,8 +369,18 @@ export default function CompanyOrdersPage() {
                                 <div className="space-y-2">
                                   {section.rows.map((row, rIdx) => (
                                     <div key={rIdx} className="bg-amber-100 text-amber-900 px-3 py-2 rounded-md font-semibold border border-amber-200 shadow-sm flex flex-col gap-0.5">
-                                      <span className="text-[10px] text-amber-700 uppercase tracking-widest font-bold">Job/Weld Description</span>
-                                      <span className="text-sm">{row.jobWeldDescription || '—'}</span>
+                                      <div className="flex flex-col gap-2">
+                                        <div>
+                                          <span className="text-[10px] text-amber-700 uppercase tracking-widest font-bold">Job/Weld Description</span>
+                                          <div className="text-sm">{row.jobWeldDescription || '—'}</div>
+                                        </div>
+                                        {row.remark && (
+                                          <div>
+                                            <span className="text-[10px] text-amber-700 uppercase tracking-widest font-bold">Remark</span>
+                                            <div className="text-sm border-t border-amber-200 pt-1 mt-0.5">{row.remark}</div>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   ))}
                                 </div>

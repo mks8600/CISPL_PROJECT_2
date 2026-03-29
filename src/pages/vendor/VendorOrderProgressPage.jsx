@@ -1,7 +1,14 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { TrendingUp, ChevronDown, ChevronUp, Clock, CheckCircle2, CircleDot, SendHorizonal, RotateCcw, Wrench, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -29,6 +36,7 @@ export default function VendorOrderProgressPage() {
     const { user } = useAuth();
     const [acceptedOrders, setAcceptedOrders] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
+    const [filmSizes, setFilmSizes] = useState([]);
 
     const loadOrders = () => {
         const all = getAssignments();
@@ -36,6 +44,11 @@ export default function VendorOrderProgressPage() {
             (a) => a.vendorNo === user?.vendorId && a.status === 'accepted'
         );
         setAcceptedOrders(accepted);
+        
+        try {
+            const savedSizes = localStorage.getItem(`crystal_film_sizes_${user?.vendorId}`);
+            if (savedSizes) setFilmSizes(JSON.parse(savedSizes));
+        } catch {}
     };
 
     useEffect(() => {
@@ -63,11 +76,77 @@ export default function VendorOrderProgressPage() {
         toast.success(`Section marked as ${newStatus}`);
     };
 
+    const handleVendorDataChange = (assignmentId, sIdx, rIdx, field, value) => {
+        const all = getAssignments();
+        const updated = all.map((a) => {
+            if (a.id === assignmentId) {
+                const newVendorData = a.vendorData ? JSON.parse(JSON.stringify(a.vendorData)) : {};
+                if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
+                if (!newVendorData[sIdx][rIdx]) newVendorData[sIdx][rIdx] = { spotNo: '', filmSize: '', observations: [] };
+                
+                newVendorData[sIdx][rIdx][field] = value;
+                
+                if (field === 'spotNo') {
+                    const N = parseInt(value, 10);
+                    const existingObs = newVendorData[sIdx][rIdx].observations || [];
+                    const newObservations = [];
+                    if (!isNaN(N) && N > 0 && N <= 100) {
+                        for (let i = 0; i < N; i++) {
+                            let label = N === 1 ? '0-1' : `${i}-${(i + 1) === N ? 0 : i + 1}`;
+                            newObservations.push({ 
+                                label, 
+                                value: existingObs[i]?.value || '', 
+                                status: existingObs[i]?.status || 'pending' 
+                            });
+                        }
+                    }
+                    newVendorData[sIdx][rIdx].observations = newObservations;
+                }
+                
+                return { ...a, vendorData: newVendorData };
+            }
+            return a;
+        });
+        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
+        setAcceptedOrders(updated.filter(a => a.vendorNo === user?.vendorId && a.status === 'accepted'));
+    };
+
+    const handleObservationStatus = (assignmentId, sIdx, rIdx, obsIdx, newStatus) => {
+        const all = getAssignments();
+        let name = '';
+        const updated = all.map((a) => {
+            if (a.id === assignmentId) {
+                const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
+                newVendorData[sIdx][rIdx].observations[obsIdx].status = newStatus;
+                name = newVendorData[sIdx][rIdx].observations[obsIdx].label;
+                return { ...a, vendorData: newVendorData };
+            }
+            return a;
+        });
+        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
+        setAcceptedOrders(updated.filter(a => a.vendorNo === user?.vendorId && a.status === 'accepted'));
+        toast.success(`Observation ${name} marked as ${newStatus}`);
+    };
+
+    const handleObservationValue = (assignmentId, sIdx, rIdx, obsIdx, value) => {
+        const all = getAssignments();
+        const updated = all.map((a) => {
+            if (a.id === assignmentId) {
+                const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
+                newVendorData[sIdx][rIdx].observations[obsIdx].value = value;
+                return { ...a, vendorData: newVendorData };
+            }
+            return a;
+        });
+        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
+        setAcceptedOrders(updated.filter(a => a.vendorNo === user?.vendorId && a.status === 'accepted'));
+    };
+
     const handleSubmitSheet = (assignmentId) => {
         const all = getAssignments();
         const updated = all.map((a) => {
             if (a.id === assignmentId) {
-                const sectionStatuses = a.sectionStatuses ? [...a.sectionStatuses] : a.sheet.sections.map(() => 'pending');
+                const sectionStatuses = a.sectionStatuses ? [...a.sectionStatuses] : (a.sheet.sections || []).map(() => 'pending');
                 const completedStatuses = sectionStatuses.map(s => s === 'pending' ? 'complete' : s);
                 return { ...a, submitted: true, submittedAt: new Date().toISOString(), sectionStatuses: completedStatuses };
             }
@@ -107,9 +186,17 @@ export default function VendorOrderProgressPage() {
                     {acceptedOrders.map((assignment) => {
                         const fd = assignment.sheet.formData;
                         const isExpanded = expandedId === assignment.id;
-                        const sectionStatuses = assignment.sectionStatuses || assignment.sheet.sections.map(() => 'pending');
-                        const completedCount = sectionStatuses.filter((s) => s === 'complete').length;
-                        const totalSections = sectionStatuses.length;
+                        let totalObs = 0;
+                        let completedObs = 0;
+                        assignment.sheet.sections.forEach((sec, sIdx) => {
+                            sec.rows.forEach((row, rIdx) => {
+                                const vData = assignment.vendorData?.[sIdx]?.[rIdx];
+                                if (vData?.observations) {
+                                    totalObs += vData.observations.length;
+                                    completedObs += vData.observations.filter(o => o.status === 'complete').length;
+                                }
+                            });
+                        });
 
                         return (
                             <Card key={assignment.id} className="overflow-hidden">
@@ -137,7 +224,7 @@ export default function VendorOrderProgressPage() {
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <span className="text-xs text-slate-600 font-medium bg-slate-100 px-2 py-1 rounded">
-                                            {completedCount}/{totalSections} Complete
+                                            {completedObs}/{totalObs} Obs Complete
                                         </span>
                                         {assignment.reassignedFrom && (
                                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
@@ -172,38 +259,10 @@ export default function VendorOrderProgressPage() {
                                                         <td className="border border-slate-400 px-3 py-1.5 w-[35%]">{formatDate(fd.date)}</td>
                                                     </tr>
                                                     <tr>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">radiation source.:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.radiationSource || '—'}</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">X ray:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.xRay || '—'}</td>
-                                                    </tr>
-                                                    <tr>
                                                         <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Job no.:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.jobNo || '—'}</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">weld reinforcement:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.weldReinforcement || '—'}</td>
+                                                        <td colSpan={3} className="border border-slate-400 px-3 py-1.5">{fd.jobNo || '—'}</td>
                                                     </tr>
-                                                    <tr>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Base material:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.baseMaterial || '—'}</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Base metal:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.baseMetal || '—'}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">QI location:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">
-                                                            {fd.qiLocation || '—'}
-                                                            {fd.filmSide && <span className="ml-3 text-slate-500">film side: {fd.filmSide}</span>}
-                                                        </td>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">IQI type:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.iqiType || '—'}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Technique:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.technique || '—'}</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5 font-medium text-slate-700 bg-slate-50">Film size:</td>
-                                                        <td className="border border-slate-400 px-3 py-1.5">{fd.filmSize || '—'}</td>
-                                                    </tr>
+
                                                 </tbody>
                                             </table>
                                         </div>
@@ -212,7 +271,6 @@ export default function VendorOrderProgressPage() {
                                         {assignment.sheet.sections && assignment.sheet.sections.length > 0 && (
                                             <div className="px-4 pb-4 space-y-3">
                                                 {assignment.sheet.sections.map((section, sIdx) => {
-                                                    const sStatus = sectionStatuses[sIdx] || 'pending';
                                                     const reviewStatuses = assignment.reviewStatuses || assignment.sheet.sections.map(() => null);
                                                     const reviewDescriptions = assignment.reviewDescriptions || assignment.sheet.sections.map(() => '');
                                                     const rStatus = reviewStatuses[sIdx];
@@ -222,39 +280,15 @@ export default function VendorOrderProgressPage() {
                                                             <thead>
                                                                 <tr>
                                                                     <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50 w-[15%]">Serial No:</th>
-                                                                    <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-left font-medium">{section.serialNo || '—'}</th>
-                                                                    <th className="border border-slate-400 px-3 py-1.5 text-right">
-                                                                        <div className="flex items-center justify-end gap-2">
-                                                                            {sStatus === 'pending' ? (
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    onClick={(e) => { e.stopPropagation(); handleSectionStatus(assignment.id, sIdx, 'complete'); }}
-                                                                                    className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 gap-1"
-                                                                                >
-                                                                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                                    Mark Complete
-                                                                                </Button>
-                                                                            ) : (
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant="outline"
-                                                                                    onClick={(e) => { e.stopPropagation(); handleSectionStatus(assignment.id, sIdx, 'pending'); }}
-                                                                                    className="text-amber-600 border-amber-300 hover:bg-amber-50 text-xs h-7 gap-1"
-                                                                                >
-                                                                                    <CircleDot className="h-3.5 w-3.5" />
-                                                                                    Mark Pending
-                                                                                </Button>
-                                                                            )}
-                                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${sStatus === 'complete' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
-                                                                                }`}>
-                                                                                {sStatus === 'complete' ? 'Complete' : 'Pending'}
-                                                                            </span>
+                                                                    <th className="border border-slate-400 px-3 py-1.5 text-left font-medium">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span>{section.serialNo || '—'}</span>
                                                                         </div>
                                                                     </th>
                                                                 </tr>
                                                                 {/* Company Review Badge Row */}
                                                                 <tr>
-                                                                    <th colSpan={4} className={`border border-slate-400 px-3 py-1.5 text-left text-xs ${
+                                                                    <th colSpan={2} className={`border border-slate-400 px-3 py-1.5 text-left text-xs ${
                                                                         rStatus === 'ok' ? 'bg-green-50' :
                                                                         rStatus === 'retake' ? 'bg-orange-50' :
                                                                         rStatus === 'repair' ? 'bg-red-50' :
@@ -289,21 +323,125 @@ export default function VendorOrderProgressPage() {
                                                                     </th>
                                                                 </tr>
                                                                 <tr>
-                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Job/Weld Description</th>
-                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Spot Nos</th>
-                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Observation</th>
-                                                                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">Film Size</th>
+                                                                    <th className="border border-slate-400 px-2 py-1 bg-slate-100 text-left w-[25%] text-slate-700">WELD IDENTIFICATION</th>
+                                                                    <th className="border border-slate-400 px-2 py-1 bg-slate-100 text-center w-16 text-slate-700">SPOT NO</th>
+                                                                    <th className="border border-slate-400 px-2 py-1 bg-slate-100 text-center w-20 text-slate-700">FILM SIZE</th>
+                                                                    <th colSpan="2" className="border border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700">OBSERVATION</th>
+                                                                    <th className="border border-slate-400 px-2 py-1 bg-slate-100 text-left text-slate-700">REMARKS</th>
+                                                                    <th colSpan="2" className="border border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 w-36">ACTIVITY</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                {section.rows.map((row, rIdx) => (
-                                                                    <tr key={rIdx}>
-                                                                        <td className="border border-slate-400 px-3 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">{row.jobWeldDescription || '—'}</td>
-                                                                        <td className="border border-slate-400 px-3 py-1.5">{row.spotNos || '—'}</td>
-                                                                        <td className="border border-slate-400 px-3 py-1.5">{row.observation || '—'}</td>
-                                                                        <td className="border border-slate-400 px-3 py-1.5">{row.filmSize || '—'}</td>
-                                                                    </tr>
-                                                                ))}
+                                                                {section.rows.map((row, rIdx) => {
+                                                                    const vData = (assignment.vendorData && assignment.vendorData[sIdx] && assignment.vendorData[sIdx][rIdx]) || { spotNo: '', filmSize: '', observations: [] };
+                                                                    const obsCount = Math.max(1, vData.observations.length); 
+
+                                                                    return (
+                                                                        <React.Fragment key={rIdx}>
+                                                                            {/* Main row, spans the number of observations */}
+                                                                            <tr>
+                                                                                <td rowSpan={obsCount} className="border border-slate-400 px-2 py-1 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px]">
+                                                                                    {row.jobWeldDescription || '—'}
+                                                                                </td>
+                                                                                <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white">
+                                                                                    <input type="number" 
+                                                                                        className="w-full h-full min-h-[36px] p-2 text-center border-0 outline-none ring-0 appearance-none m-0" 
+                                                                                        value={vData.spotNo} 
+                                                                                        onChange={e => handleVendorDataChange(assignment.id, sIdx, rIdx, 'spotNo', e.target.value)} />
+                                                                                </td>
+                                                                                <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white">
+                                                                                    {filmSizes.length > 0 ? (
+                                                                                        <Select
+                                                                                            value={vData.filmSize || ''}
+                                                                                            onValueChange={val => handleVendorDataChange(assignment.id, sIdx, rIdx, 'filmSize', val)}
+                                                                                        >
+                                                                                            <SelectTrigger className="w-full h-full min-h-[36px] border-0 rounded-none shadow-none focus:ring-0 px-2 text-center justify-center font-medium bg-transparent overflow-hidden">
+                                                                                                <SelectValue placeholder="Size" />
+                                                                                            </SelectTrigger>
+                                                                                            <SelectContent>
+                                                                                                {filmSizes.map(size => (
+                                                                                                    <SelectItem key={size} value={size}>{size}</SelectItem>
+                                                                                                ))}
+                                                                                            </SelectContent>
+                                                                                        </Select>
+                                                                                    ) : (
+                                                                                        <input type="text"
+                                                                                            className="w-full h-full min-h-[36px] p-2 text-center border-0 outline-none ring-0 w-20"
+                                                                                            value={vData.filmSize || ''}
+                                                                                            onChange={e => handleVendorDataChange(assignment.id, sIdx, rIdx, 'filmSize', e.target.value)}
+                                                                                            placeholder="Size" />
+                                                                                    )}
+                                                                                </td>
+                                                                                
+                                                                                {/* 1st Observation */}
+                                                                                {vData.observations.length > 0 ? (
+                                                                                    <>
+                                                                                        <td className="border border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 font-medium">{vData.observations[0].label}</td>
+                                                                                        <td className="border border-slate-400 p-0 align-top bg-white w-20">
+                                                                                            <input type="text" className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none text-sm" value={vData.observations[0].value} onChange={e => handleObservationValue(assignment.id, sIdx, rIdx, 0, e.target.value)} />
+                                                                                        </td>
+                                                                                        <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white w-48">
+                                                                                            <textarea
+                                                                                                className="w-full h-full min-h-[36px] p-2 border-0 outline-none resize-none text-sm"
+                                                                                                value={vData.remark !== undefined ? vData.remark : (row.remark || '')}
+                                                                                                onChange={e => handleVendorDataChange(assignment.id, sIdx, rIdx, 'remark', e.target.value)}
+                                                                                                placeholder="Add remark..."
+                                                                                            />
+                                                                                        </td>
+                                                                                        <td className="border border-slate-400 p-0 bg-white">
+                                                                                            <button 
+                                                                                                onClick={() => handleObservationStatus(assignment.id, sIdx, rIdx, 0, vData.observations[0].status === 'complete' ? 'pending' : 'complete')} 
+                                                                                                className={`w-full h-full min-h-[32px] text-[10px] font-bold px-1 transition-colors ${vData.observations[0].status === 'complete' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-green-100 hover:bg-green-200 text-green-800'}`}>
+                                                                                                {vData.observations[0].status === 'complete' ? 'MARK PENDING' : 'MARK COMPLETE'}
+                                                                                            </button>
+                                                                                        </td>
+                                                                                        <td className={`border border-slate-400 px-1 py-1 text-center text-[10px] font-bold w-16 ${vData.observations[0].status === 'complete' ? 'bg-slate-200' : 'bg-slate-100'} text-slate-600`}>
+                                                                                            {vData.observations[0].status === 'complete' ? 'SUCCESS' : 'PENDING'}
+                                                                                        </td>
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <td className="border border-slate-400 px-2 py-1 bg-white w-12 text-slate-300 text-center text-xs">N/A</td>
+                                                                                        <td className="border border-slate-400 px-2 py-1 bg-white w-20 text-slate-300 text-center text-xs">N/A</td>
+                                                                                        <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white w-48">
+                                                                                            <textarea
+                                                                                                className="w-full h-full min-h-[36px] p-2 border-0 outline-none resize-none text-sm"
+                                                                                                value={vData.remark !== undefined ? vData.remark : (row.remark || '')}
+                                                                                                onChange={e => handleVendorDataChange(assignment.id, sIdx, rIdx, 'remark', e.target.value)}
+                                                                                                placeholder="Add remark..."
+                                                                                            />
+                                                                                        </td>
+                                                                                        <td className="border border-slate-400 px-2 py-1 bg-white"></td>
+                                                                                        <td className="border border-slate-400 px-2 py-1 bg-white"></td>
+                                                                                    </>
+                                                                                )}
+                                                                            </tr>
+
+                                                                            {/* Map remaining observations (if any) */}
+                                                                            {vData.observations.slice(1).map((obs, offsetIdx) => {
+                                                                                const obsIdx = offsetIdx + 1;
+                                                                                return (
+                                                                                    <tr key={obsIdx}>
+                                                                                        <td className="border border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 font-medium">{obs.label}</td>
+                                                                                        <td className="border border-slate-400 p-0 align-top bg-white w-20">
+                                                                                            <input type="text" className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none text-sm" value={obs.value} onChange={e => handleObservationValue(assignment.id, sIdx, rIdx, obsIdx, e.target.value)} />
+                                                                                        </td>
+                                                                                        <td className="border border-slate-400 p-0 bg-white">
+                                                                                            <button 
+                                                                                                onClick={() => handleObservationStatus(assignment.id, sIdx, rIdx, obsIdx, obs.status === 'complete' ? 'pending' : 'complete')} 
+                                                                                                className={`w-full h-full min-h-[32px] text-[10px] font-bold px-1 transition-colors ${obs.status === 'complete' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-green-100 hover:bg-green-200 text-green-800'}`}>
+                                                                                                {obs.status === 'complete' ? 'MARK PENDING' : 'MARK COMPLETE'}
+                                                                                            </button>
+                                                                                        </td>
+                                                                                        <td className={`border border-slate-400 px-1 py-1 text-center text-[10px] font-bold w-16 ${obs.status === 'complete' ? 'bg-slate-200' : 'bg-slate-100'} text-slate-600`}>
+                                                                                            {obs.status === 'complete' ? 'SUCCESS' : 'PENDING'}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                        </React.Fragment>
+                                                                    );
+                                                                })}
                                                             </tbody>
                                                         </table>
                                                     );
@@ -322,7 +460,7 @@ export default function VendorOrderProgressPage() {
                                             ) : (
                                                 <Button
                                                     onClick={() => handleSubmitSheet(assignment.id)}
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+                                                    className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <SendHorizonal className="h-4 w-4" />
                                                     Submit to Company
