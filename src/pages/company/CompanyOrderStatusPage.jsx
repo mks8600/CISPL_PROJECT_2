@@ -120,11 +120,6 @@ export default function CompanyOrderStatusPage() {
         const descKey = `${assignmentId}-${sectionIndex}`;
         const description = descriptions[descKey] || '';
 
-        if ((reviewStatus === 'retake' || reviewStatus === 'repair') && !description.trim()) {
-            toast.error('Please enter a description for Retake/Repair.');
-            return;
-        }
-
         const all = getAssignments();
         const updated = all.map((a) => {
             if (a.id === assignmentId) {
@@ -140,6 +135,77 @@ export default function CompanyOrderStatusPage() {
         loadData();
         setDescriptions((prev) => ({ ...prev, [descKey]: '' }));
         toast.success(`Section marked as ${reviewStatus.charAt(0).toUpperCase() + reviewStatus.slice(1)}!`);
+    };
+
+    const handleMarkAsCompleted = (assignment) => {
+        const sections = assignment.sheet.sections || [];
+        const sectionStatuses = assignment.sectionStatuses || sections.map(() => 'pending');
+
+        // First, validate that all vendor observations have a company value selected
+        let hasEmpty = false;
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+            if (sectionStatuses[sIdx] === 'reassigned') continue;
+            const section = sections[sIdx];
+            for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
+                const vData = (assignment.vendorData && assignment.vendorData[sIdx] && assignment.vendorData[sIdx][rIdx]) || {};
+                const obsArray = vData.observations || [];
+                for (const obs of obsArray) {
+                    if (!obs.companyValue) {
+                        hasEmpty = true;
+                        break;
+                    }
+                }
+                if (hasEmpty) break;
+            }
+            if (hasEmpty) break;
+        }
+
+        if (hasEmpty) {
+            toast.error("Please provide a COMPANY OBSERVATION for all spots before completing the review.");
+            return;
+        }
+
+        const all = getAssignments();
+        const updated = all.map((a) => {
+            if (a.id === assignment.id) {
+                const newReviewStatuses = a.reviewStatuses ? [...a.reviewStatuses] : sections.map(() => null);
+                const newReviewDescriptions = a.reviewDescriptions ? [...a.reviewDescriptions] : sections.map(() => '');
+
+                for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+                    if (sectionStatuses[sIdx] === 'reassigned') continue;
+
+                    const section = sections[sIdx];
+                    let sectionOk = true;
+
+                    for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
+                        const vData = (a.vendorData && a.vendorData[sIdx] && a.vendorData[sIdx][rIdx]) || {};
+                        const obsArray = vData.observations || [];
+                        for (const obs of obsArray) {
+                            if (obs.companyValue !== 'OK') {
+                                sectionOk = false;
+                                break;
+                            }
+                        }
+                        if (!sectionOk) break;
+                    }
+
+                    if (sectionOk) {
+                        newReviewStatuses[sIdx] = 'ok';
+                        newReviewDescriptions[sIdx] = '';
+                    } else {
+                        // Mark as repair to send this section back to Pending Works
+                        newReviewStatuses[sIdx] = 'repair';
+                        newReviewDescriptions[sIdx] = 'Company observation indicated non-OK values (e.g., Repair, R/S, Missing).';
+                    }
+                }
+                return { ...a, reviewStatuses: newReviewStatuses, reviewDescriptions: newReviewDescriptions };
+            }
+            return a;
+        });
+
+        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
+        loadData();
+        toast.success("Review processing complete!");
     };
 
     const getReviewBadge = (status) => {
@@ -385,66 +451,21 @@ export default function CompanyOrderStatusPage() {
                                                                 </tbody>
                                                             </table>
 
-                                                            {/* Review Actions */}
-                                                            {rStatus ? (
-                                                                <div className={`px-4 py-3 text-sm ${rStatus === 'ok' ? 'bg-green-50' : rStatus === 'retake' ? 'bg-orange-50' : 'bg-red-50'}`}>
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="flex items-center gap-2">
-                                                                            {getReviewBadge(rStatus)}
-                                                                            {rDesc && <span className="text-slate-600 ml-1">— {rDesc}</span>}
-                                                                        </div>
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="ghost"
-                                                                            onClick={() => handleReview(assignment.id, sIdx, null)}
-                                                                            className="text-xs text-slate-500 hover:text-slate-700 h-7"
-                                                                        >
-                                                                            Change
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="px-4 py-3 bg-slate-50 border-t space-y-3">
-                                                                    {/* Description input */}
-                                                                    <div className="space-y-1">
-                                                                        <label className="text-xs font-medium text-slate-600">Description (required for Retake / Repair)</label>
-                                                                        <Input
-                                                                            value={descriptions[descKey] || ''}
-                                                                            onChange={(e) => setDescriptions((prev) => ({ ...prev, [descKey]: e.target.value }))}
-                                                                            placeholder="Enter reason for retake or repair..."
-                                                                            className="h-8 text-sm"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Button
-                                                                            size="sm"
-                                                                            onClick={() => handleReview(assignment.id, sIdx, 'ok')}
-                                                                            className="bg-green-600 hover:bg-green-700 text-white text-xs h-8 gap-1"
-                                                                        >
-                                                                            <CheckCircle2 className="h-3.5 w-3.5" /> OK
-                                                                        </Button>
-                                                                        <Button
-                                                                            size="sm"
-                                                                            onClick={() => handleReview(assignment.id, sIdx, 'retake')}
-                                                                            className="bg-orange-500 hover:bg-orange-600 text-white text-xs h-8 gap-1"
-                                                                        >
-                                                                            <RotateCcw className="h-3.5 w-3.5" /> Retake
-                                                                        </Button>
-                                                                        <Button
-                                                                            size="sm"
-                                                                            onClick={() => handleReview(assignment.id, sIdx, 'repair')}
-                                                                            className="bg-red-500 hover:bg-red-600 text-white text-xs h-8 gap-1"
-                                                                        >
-                                                                            <Wrench className="h-3.5 w-3.5" /> Repair
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     );
                                                 })}
                                             </div>
                                         )}
+
+                                        {/* Mark as Completed Button */}
+                                        <div className="border-t p-4 bg-slate-50 flex justify-end">
+                                            <Button
+                                                onClick={() => handleMarkAsCompleted(assignment)}
+                                                className="bg-green-600 hover:bg-green-700 text-white"
+                                            >
+                                                Review Completed
+                                            </Button>
+                                        </div>
                                     </div>
                                 )}
                             </Card>

@@ -72,6 +72,11 @@ export function Sidebar({ portalType }) {
       icon: <Package className="h-5 w-5" />,
     },
     {
+      title: 'Reassigned Tasks',
+      href: '/vendor/reassigned-tasks',
+      icon: <AlertTriangle className="h-5 w-5" />,
+    },
+    {
       title: 'Order Progress',
       href: '/vendor/order-progress',
       icon: <TrendingUp className="h-5 w-5" />,

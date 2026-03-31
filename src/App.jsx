@@ -18,6 +18,7 @@ import VendorLoginPage from './pages/vendor/VendorLoginPage';
 import VendorDashboardPage from './pages/vendor/VendorDashboardPage';
 import VendorOrdersPage from './pages/vendor/VendorOrdersPage';
 import VendorOrderProgressPage from './pages/vendor/VendorOrderProgressPage';
+import VendorReassignedTasksPage from './pages/vendor/VendorReassignedTasksPage';
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
           <Route element={<VendorLayout />}>
             <Route path="/vendor/dashboard" element={<VendorDashboardPage />} />
             <Route path="/vendor/orders" element={<VendorOrdersPage />} />
+            <Route path="/vendor/reassigned-tasks" element={<VendorReassignedTasksPage />} />
             <Route path="/vendor/order-progress" element={<VendorOrderProgressPage />} />
           </Route>
 
@@ -55,3 +57,4 @@ function App() {
 }
 
 export default App;
+// Force Vite reload for the new route

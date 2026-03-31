@@ -44,14 +44,14 @@ export default function CompanyPendingWorkPage() {
 
         // Find submitted sheets that have:
         // 1. Pending sections from vendor (not reassigned), OR
-        // 2. Sections marked as retake/repair by company (not reassigned)
+        // 2. Sections marked as retake/repair by company (not reassigned), OR
+        // 3. Sections that have been reassigned (so the sheet stays visible)
         const withPending = all.filter((a) => {
             if (a.status !== 'accepted' || !a.submitted) return false;
             const statuses = a.sectionStatuses || (a.sheet.sections || []).map(() => 'pending');
             const reviewStatuses = a.reviewStatuses || (a.sheet.sections || []).map(() => null);
             return statuses.some((s, i) => {
-                if (s === 'reassigned') return false;
-                if (s === 'pending') return true;
+                if (s === 'pending' || s === 'reassigned') return true;
                 if (reviewStatuses[i] === 'retake' || reviewStatuses[i] === 'repair') return true;
                 return false;
             });
@@ -108,7 +108,7 @@ export default function CompanyPendingWorkPage() {
             vendorId: vendor.id,
             vendorNo: vendor.vendorNo,
             vendorName: vendor.vendorName,
-            status: vendor.id === original.vendorId ? 'accepted' : 'pending',
+            status: 'pending', // Always require explicit acceptance for reassigned blocks
             assignedAt: new Date().toISOString(),
             sectionStatuses: pendingStatuses,
             reassignedFrom: assignmentId,
@@ -179,6 +179,11 @@ export default function CompanyPendingWorkPage() {
                             )
                         ).length;
 
+                        const reassignedCount = sections.filter((_, i) => sectionStatuses[i] === 'reassigned').length;
+
+                        const allAssigned = getFromStorage(ASSIGNED_KEY);
+                        const childAssignments = allAssigned.filter(a => a.reassignedFrom === assignment.id);
+
                         return (
                             <Card key={assignment.id} className="overflow-hidden border-amber-200">
                                 {/* Summary */}
@@ -202,9 +207,16 @@ export default function CompanyPendingWorkPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                            {pendingCount} Pending
-                                        </span>
+                                        {pendingCount > 0 && (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                                {pendingCount} Pending
+                                            </span>
+                                        )}
+                                        {reassignedCount > 0 && (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                {reassignedCount} Reassigned
+                                            </span>
+                                        )}
                                         {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                                     </div>
                                 </div>
@@ -220,27 +232,41 @@ export default function CompanyPendingWorkPage() {
                                                     const isPending = sectionStatuses[sIdx] === 'pending';
                                                     const isRetake = reviewStatuses[sIdx] === 'retake';
                                                     const isRepair = reviewStatuses[sIdx] === 'repair';
-                                                    if (!isPending && !isRetake && !isRepair) return null;
+                                                    const isReassigned = sectionStatuses[sIdx] === 'reassigned';
+
+                                                    if (!isPending && !isRetake && !isRepair && !isReassigned) return null;
+                                                    
                                                     const reason = reviewDescriptions[sIdx] || '';
+                                                    let childVendorName = null;
+                                                    if (isReassigned) {
+                                                        const child = childAssignments.find(c => c.sheet.sections.some(cs => cs.serialNo === section.serialNo));
+                                                        if (child) childVendorName = child.vendorName;
+                                                    }
+
                                                     return (
-                                                        <table key={sIdx} className="w-full border-collapse border border-slate-400 text-sm">
+                                                        <table key={sIdx} className={`w-full border-collapse border border-slate-400 text-sm ${isReassigned ? 'opacity-70' : ''}`}>
                                                             <thead>
                                                                 <tr>
                                                                     <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-amber-50 w-[15%]">Serial No:</th>
                                                                     <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-left font-medium">{section.serialNo || '—'}</th>
                                                                     <th className="border border-slate-400 px-3 py-1.5 text-right">
                                                                         <div className="flex items-center justify-end gap-2">
-                                                                            {isRetake && (
+                                                                            {isReassigned && (
+                                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                                    Out for Reassignment {childVendorName ? `(${childVendorName})` : ''}
+                                                                                </span>
+                                                                            )}
+                                                                            {!isReassigned && isRetake && (
                                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                                                                                     <RotateCcw className="h-3 w-3" /> Retake
                                                                                 </span>
                                                                             )}
-                                                                            {isRepair && (
+                                                                            {!isReassigned && isRepair && (
                                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                                                                     <Wrench className="h-3 w-3" /> Repair
                                                                                 </span>
                                                                             )}
-                                                                            {isPending && !isRetake && !isRepair && (
+                                                                            {!isReassigned && isPending && !isRetake && !isRepair && (
                                                                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                                                                                     Pending
                                                                                 </span>
@@ -322,37 +348,39 @@ export default function CompanyPendingWorkPage() {
                                             </div>
                                         </div>
 
-                                        {/* Reassign Section */}
-                                        <div className="border-t px-4 py-4 bg-slate-50">
-                                            <h4 className="text-sm font-semibold text-slate-700 mb-3">Reassign Pending Sections to Vendor</h4>
-                                            <div className="flex flex-col sm:flex-row gap-3 items-end">
-                                                <div className="flex-1 space-y-1.5">
-                                                    <label className="text-sm font-medium text-slate-600">Select Vendor</label>
-                                                    <Select
-                                                        value={reassignVendor[assignment.id] || ''}
-                                                        onValueChange={(val) => setReassignVendor((prev) => ({ ...prev, [assignment.id]: val }))}
+                                        {/* Reassign Section - Only show if there are sections that can be reassigned */}
+                                        {pendingCount > 0 && (
+                                            <div className="border-t px-4 py-4 bg-slate-50">
+                                                <h4 className="text-sm font-semibold text-slate-700 mb-3">Reassign Pending Sections to Vendor</h4>
+                                                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                                                    <div className="flex-1 space-y-1.5">
+                                                        <label className="text-sm font-medium text-slate-600">Select Vendor</label>
+                                                        <Select
+                                                            value={reassignVendor[assignment.id] || ''}
+                                                            onValueChange={(val) => setReassignVendor((prev) => ({ ...prev, [assignment.id]: val }))}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Choose a vendor..." />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {vendors.map((v) => (
+                                                                    <SelectItem key={v.id} value={v.id}>
+                                                                        {v.vendorNo} — {v.vendorName}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <Button
+                                                        onClick={() => handleReassign(assignment.id)}
+                                                        className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
                                                     >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Choose a vendor..." />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {vendors.map((v) => (
-                                                                <SelectItem key={v.id} value={v.id}>
-                                                                    {v.vendorNo} — {v.vendorName}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                        <Send className="h-4 w-4" />
+                                                        Reassign
+                                                    </Button>
                                                 </div>
-                                                <Button
-                                                    onClick={() => handleReassign(assignment.id)}
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
-                                                >
-                                                    <Send className="h-4 w-4" />
-                                                    Reassign
-                                                </Button>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                 )}
                             </Card>

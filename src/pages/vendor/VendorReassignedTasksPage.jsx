@@ -25,7 +25,7 @@ function formatDate(dateStr) {
     }
 }
 
-export default function VendorOrdersPage() {
+export default function VendorReassignedTasksPage() {
     const { user } = useAuth();
     const [assignments, setAssignments] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
@@ -39,8 +39,8 @@ export default function VendorOrdersPage() {
 
     const loadOrders = () => {
         const all = getAssignments();
-        // Filter by vendor — match vendorNo to user.vendorId, and exclude reassigned
-        const mine = all.filter((a) => a.vendorNo === user?.vendorId && !a.reassignedFrom);
+        // Filter by vendor — match vendorNo to user.vendorId, and MUST be reassigned
+        const mine = all.filter((a) => a.vendorNo === user?.vendorId && a.reassignedFrom);
         setAssignments(mine);
     };
 
@@ -88,10 +88,10 @@ export default function VendorOrdersPage() {
             {/* Header */}
             <div>
                 <div className="flex items-center gap-2 mb-2">
-                    <Package className="h-6 w-6 text-slate-700" />
-                    <h1 className="text-2xl font-bold text-slate-900">My Orders</h1>
+                    <Package className="h-6 w-6 text-amber-600" />
+                    <h1 className="text-2xl font-bold text-slate-900">Reassigned Tasks</h1>
                 </div>
-                <p className="text-slate-500">View and respond to assigned work orders</p>
+                <p className="text-slate-500">View and respond to tasks that have been sent back for retake or repair</p>
             </div>
 
             {/* Orders List */}
@@ -100,8 +100,8 @@ export default function VendorOrdersPage() {
                     <CardContent className="py-16">
                         <div className="text-center text-slate-500">
                             <Package className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                            <p className="font-medium">No orders assigned to you yet.</p>
-                            <p className="text-sm mt-1">Orders assigned by the company will appear here.</p>
+                            <p className="font-medium">No reassigned tasks found.</p>
+                            <p className="text-sm mt-1">Sheets marked for retake or repair will appear here.</p>
                         </div>
                     </CardContent>
                 </Card>
