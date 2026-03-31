@@ -393,28 +393,8 @@ export default function CreateOrderPage() {
             <thead>
               {/* Serial No row */}
               <tr>
-                <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50 w-[15%]">
-                  Serial No:
-                </th>
-                <th colSpan={2} className="border border-slate-400 px-2 py-1 text-left">
-                  <div className="flex items-center justify-between">
-                    <Input
-                      value={section.serialNo}
-                      onChange={(e) => handleSectionChange(sectionIndex, 'serialNo', e.target.value)}
-                      className={`${inputClass} flex-1`}
-                    />
-                    {sections.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeSection(sectionIndex)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 ml-2 h-8"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+                <th colSpan={3} className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50">
+                  Serial No: {sectionIndex + 1}
                 </th>
               </tr>
               {/* Column headers */}
@@ -439,16 +419,16 @@ export default function CreateOrderPage() {
                     <Input value={row.remark || ''} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'remark', e.target.value)} className={inputClass} placeholder="Add a remark..." />
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center font-medium text-slate-700 bg-slate-50">
-                      {section.rows.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeRow(sectionIndex, rowIndex)}
-                          className="text-red-400 hover:text-red-600 p-0.5"
-                          title="Remove row"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                    {section.rows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeRow(sectionIndex, rowIndex)}
+                        className="text-red-400 hover:text-red-600 p-0.5"
+                        title="Remove row"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Activity, ChevronDown, ChevronUp, CheckCircle2, CircleDot, RotateCcw, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -88,6 +95,25 @@ export default function CompanyOrderStatusPage() {
             return true;
         });
         setAssignments(readyForReview);
+    };
+
+    const handleCompanyObservationValue = (assignmentId, sIdx, rIdx, obsIdx, value) => {
+        const all = getAssignments();
+        const updated = all.map((a) => {
+            if (a.id === assignmentId) {
+                const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
+                if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
+                if (!newVendorData[sIdx][rIdx]) newVendorData[sIdx][rIdx] = { observations: [] };
+                if (!newVendorData[sIdx][rIdx].observations[obsIdx]) {
+                    newVendorData[sIdx][rIdx].observations[obsIdx] = { label: '', value: '' };
+                }
+                newVendorData[sIdx][rIdx].observations[obsIdx].companyValue = value;
+                return { ...a, vendorData: newVendorData };
+            }
+            return a;
+        });
+        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
+        setAssignments(prev => prev.map(a => a.id === assignmentId ? updated.find(u => u.id === assignmentId) : a));
     };
 
     const handleReview = (assignmentId, sectionIndex, reviewStatus) => {
@@ -258,7 +284,8 @@ export default function CompanyOrderStatusPage() {
                                                                         <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-left w-[25%] text-slate-700 shadow-sm">WELD IDENTIFICATION</th>
                                                                         <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-16 text-slate-700 shadow-sm">SPOT NO</th>
                                                                         <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-20 text-slate-700 shadow-sm">FILM SIZE</th>
-                                                                        <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">OBSERVATION</th>
+                                                                        <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">VENDOR OBSERVATION</th>
+                                                                        <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">COMPANY OBSERVATION</th>
                                                                         <th className="border-y border-slate-400 px-2 py-1 bg-slate-100 text-left text-slate-700 shadow-sm">REMARKS</th>
                                                                     </tr>
                                                                 </thead>
@@ -283,9 +310,28 @@ export default function CompanyOrderStatusPage() {
                                                                                     {vData.observations.length > 0 ? (
                                                                                         <>
                                                                                             <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{vData.observations[0].label}</td>
-                                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-medium text-slate-800 border-b border-slate-200">
+                                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">
                                                                                                 {vData.observations[0].value || '—'}
                                                                                                 {vData.observations[0].status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">
+                                                                                                {vData.observations[0].label}
+                                                                                            </td>
+                                                                                            <td className="border-r border-slate-400 p-0 align-top bg-white w-28 border-b border-slate-200">
+                                                                                                <Select
+                                                                                                    value={vData.observations[0].companyValue || ''}
+                                                                                                    onValueChange={val => handleCompanyObservationValue(assignment.id, sIdx, rIdx, 0, val)}
+                                                                                                >
+                                                                                                    <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
+                                                                                                        <SelectValue placeholder="—" />
+                                                                                                    </SelectTrigger>
+                                                                                                    <SelectContent>
+                                                                                                        <SelectItem value="OK">OK</SelectItem>
+                                                                                                        <SelectItem value="R/S">R/S</SelectItem>
+                                                                                                        <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                        <SelectItem value="Missing">Missing</SelectItem>
+                                                                                                    </SelectContent>
+                                                                                                </Select>
                                                                                             </td>
                                                                                             <td rowSpan={obsCount} className="p-2 text-slate-700 whitespace-pre-wrap align-top bg-white w-48 font-medium">
                                                                                                 {vData.remark !== undefined ? vData.remark : (row.remark || '—')}
@@ -294,8 +340,10 @@ export default function CompanyOrderStatusPage() {
                                                                                     ) : (
                                                                                         <>
                                                                                             <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 text-slate-400 text-xs">N/A</td>
-                                                                                            <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-20 text-slate-400 text-xs">N/A</td>
-                                                                                            <td rowSpan={obsCount} className="p-2 text-slate-500 whitespace-pre-wrap align-top bg-white w-48 italic">
+                                                                                            <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-24 text-slate-400 text-xs">N/A</td>
+                                                                                            <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 text-slate-400 text-xs">N/A</td>
+                                                                                            <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-28 text-slate-400 text-xs">N/A</td>
+                                                                                            <td rowSpan={obsCount} className="p-2 text-slate-500 whitespace-pre-wrap align-top bg-white w-48 italic text-xs">
                                                                                                 {vData.remark !== undefined ? vData.remark : (row.remark || '—')}
                                                                                             </td>
                                                                                         </>
@@ -304,10 +352,30 @@ export default function CompanyOrderStatusPage() {
                                                                                 
                                                                                 {vData.observations.slice(1).map((obs, offsetIdx) => (
                                                                                     <tr key={offsetIdx + 1} className="border-b border-slate-200 last:border-b-0">
-                                                                                        <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium">{obs.label}</td>
-                                                                                        <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-medium text-slate-800">
+                                                                                        <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{obs.label}</td>
+                                                                                        <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">
                                                                                             {obs.value || '—'}
                                                                                             {obs.status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
+                                                                                        </td>
+                                                                                        {/* Mirror Vendor structure in slice(1) mapping */}
+                                                                                        <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">
+                                                                                            {obs.label}
+                                                                                        </td>
+                                                                                        <td className="border-r border-slate-400 p-0 align-top bg-white w-28 border-b border-slate-200">
+                                                                                            <Select
+                                                                                                value={obs.companyValue || ''}
+                                                                                                onValueChange={val => handleCompanyObservationValue(assignment.id, sIdx, rIdx, offsetIdx + 1, val)}
+                                                                                            >
+                                                                                                <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
+                                                                                                    <SelectValue placeholder="—" />
+                                                                                                </SelectTrigger>
+                                                                                                <SelectContent>
+                                                                                                    <SelectItem value="OK">OK</SelectItem>
+                                                                                                    <SelectItem value="R/S">R/S</SelectItem>
+                                                                                                    <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                    <SelectItem value="Missing">Missing</SelectItem>
+                                                                                                </SelectContent>
+                                                                                            </Select>
                                                                                         </td>
                                                                                     </tr>
                                                                                 ))}

@@ -44,11 +44,11 @@ export default function VendorOrderProgressPage() {
             (a) => a.vendorNo === user?.vendorId && a.status === 'accepted'
         );
         setAcceptedOrders(accepted);
-        
+
         try {
             const savedSizes = localStorage.getItem(`crystal_film_sizes_${user?.vendorId}`);
             if (savedSizes) setFilmSizes(JSON.parse(savedSizes));
-        } catch {}
+        } catch { }
     };
 
     useEffect(() => {
@@ -83,9 +83,9 @@ export default function VendorOrderProgressPage() {
                 const newVendorData = a.vendorData ? JSON.parse(JSON.stringify(a.vendorData)) : {};
                 if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
                 if (!newVendorData[sIdx][rIdx]) newVendorData[sIdx][rIdx] = { spotNo: '', filmSize: '', observations: [] };
-                
+
                 newVendorData[sIdx][rIdx][field] = value;
-                
+
                 if (field === 'spotNo') {
                     const N = parseInt(value, 10);
                     const existingObs = newVendorData[sIdx][rIdx].observations || [];
@@ -93,16 +93,16 @@ export default function VendorOrderProgressPage() {
                     if (!isNaN(N) && N > 0 && N <= 100) {
                         for (let i = 0; i < N; i++) {
                             let label = N === 1 ? '0-1' : `${i}-${(i + 1) === N ? 0 : i + 1}`;
-                            newObservations.push({ 
-                                label, 
-                                value: existingObs[i]?.value || '', 
-                                status: existingObs[i]?.status || 'pending' 
+                            newObservations.push({
+                                label,
+                                value: existingObs[i]?.value || '',
+                                status: existingObs[i]?.status || 'pending'
                             });
                         }
                     }
                     newVendorData[sIdx][rIdx].observations = newObservations;
                 }
-                
+
                 return { ...a, vendorData: newVendorData };
             }
             return a;
@@ -288,12 +288,11 @@ export default function VendorOrderProgressPage() {
                                                                 </tr>
                                                                 {/* Company Review Badge Row */}
                                                                 <tr>
-                                                                    <th colSpan={2} className={`border border-slate-400 px-3 py-1.5 text-left text-xs ${
-                                                                        rStatus === 'ok' ? 'bg-green-50' :
+                                                                    <th colSpan={2} className={`border border-slate-400 px-3 py-1.5 text-left text-xs ${rStatus === 'ok' ? 'bg-green-50' :
                                                                         rStatus === 'retake' ? 'bg-orange-50' :
-                                                                        rStatus === 'repair' ? 'bg-red-50' :
-                                                                        'bg-slate-50'
-                                                                    }`}>
+                                                                            rStatus === 'repair' ? 'bg-red-50' :
+                                                                                'bg-slate-50'
+                                                                        }`}>
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="font-medium text-slate-600">Company Review:</span>
                                                                             {rStatus === 'ok' && (
@@ -326,7 +325,7 @@ export default function VendorOrderProgressPage() {
                                                                     <th className="border border-slate-400 px-2 py-1 bg-slate-100 text-left w-[25%] text-slate-700">WELD IDENTIFICATION</th>
                                                                     <th className="border border-slate-400 px-2 py-1 bg-slate-100 text-center w-16 text-slate-700">SPOT NO</th>
                                                                     <th className="border border-slate-400 px-2 py-1 bg-slate-100 text-center w-20 text-slate-700">FILM SIZE</th>
-                                                                    <th colSpan="2" className="border border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700">OBSERVATION</th>
+                                                                    <th colSpan="2" className="border border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700"> VENDOR OBSERVATION</th>
                                                                     <th className="border border-slate-400 px-2 py-1 bg-slate-100 text-left text-slate-700">REMARKS</th>
                                                                     <th colSpan="2" className="border border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 w-36">ACTIVITY</th>
                                                                 </tr>
@@ -334,7 +333,7 @@ export default function VendorOrderProgressPage() {
                                                             <tbody>
                                                                 {section.rows.map((row, rIdx) => {
                                                                     const vData = (assignment.vendorData && assignment.vendorData[sIdx] && assignment.vendorData[sIdx][rIdx]) || { spotNo: '', filmSize: '', observations: [] };
-                                                                    const obsCount = Math.max(1, vData.observations.length); 
+                                                                    const obsCount = Math.max(1, vData.observations.length);
 
                                                                     return (
                                                                         <React.Fragment key={rIdx}>
@@ -344,9 +343,9 @@ export default function VendorOrderProgressPage() {
                                                                                     {row.jobWeldDescription || '—'}
                                                                                 </td>
                                                                                 <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white">
-                                                                                    <input type="number" 
-                                                                                        className="w-full h-full min-h-[36px] p-2 text-center border-0 outline-none ring-0 appearance-none m-0" 
-                                                                                        value={vData.spotNo} 
+                                                                                    <input type="number"
+                                                                                        className="w-full h-full min-h-[36px] p-2 text-center border-0 outline-none ring-0 appearance-none m-0"
+                                                                                        value={vData.spotNo}
                                                                                         onChange={e => handleVendorDataChange(assignment.id, sIdx, rIdx, 'spotNo', e.target.value)} />
                                                                                 </td>
                                                                                 <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white">
@@ -372,13 +371,26 @@ export default function VendorOrderProgressPage() {
                                                                                             placeholder="Size" />
                                                                                     )}
                                                                                 </td>
-                                                                                
+
                                                                                 {/* 1st Observation */}
                                                                                 {vData.observations.length > 0 ? (
                                                                                     <>
                                                                                         <td className="border border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 font-medium">{vData.observations[0].label}</td>
                                                                                         <td className="border border-slate-400 p-0 align-top bg-white w-20">
-                                                                                            <input type="text" className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none text-sm" value={vData.observations[0].value} onChange={e => handleObservationValue(assignment.id, sIdx, rIdx, 0, e.target.value)} />
+                                                                                            <Select
+                                                                                                value={vData.observations[0].value || ''}
+                                                                                                onValueChange={val => handleObservationValue(assignment.id, sIdx, rIdx, 0, val)}
+                                                                                            >
+                                                                                                <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
+                                                                                                    <SelectValue placeholder="—" />
+                                                                                                </SelectTrigger>
+                                                                                                <SelectContent>
+                                                                                                    <SelectItem value="OK">OK</SelectItem>
+                                                                                                    <SelectItem value="R/S">R/S</SelectItem>
+                                                                                                    <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                    <SelectItem value="Missing">Missing</SelectItem>
+                                                                                                </SelectContent>
+                                                                                            </Select>
                                                                                         </td>
                                                                                         <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white w-48">
                                                                                             <textarea
@@ -389,8 +401,8 @@ export default function VendorOrderProgressPage() {
                                                                                             />
                                                                                         </td>
                                                                                         <td className="border border-slate-400 p-0 bg-white">
-                                                                                            <button 
-                                                                                                onClick={() => handleObservationStatus(assignment.id, sIdx, rIdx, 0, vData.observations[0].status === 'complete' ? 'pending' : 'complete')} 
+                                                                                            <button
+                                                                                                onClick={() => handleObservationStatus(assignment.id, sIdx, rIdx, 0, vData.observations[0].status === 'complete' ? 'pending' : 'complete')}
                                                                                                 className={`w-full h-full min-h-[32px] text-[10px] font-bold px-1 transition-colors ${vData.observations[0].status === 'complete' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-green-100 hover:bg-green-200 text-green-800'}`}>
                                                                                                 {vData.observations[0].status === 'complete' ? 'MARK PENDING' : 'MARK COMPLETE'}
                                                                                             </button>
@@ -424,11 +436,24 @@ export default function VendorOrderProgressPage() {
                                                                                     <tr key={obsIdx}>
                                                                                         <td className="border border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 font-medium">{obs.label}</td>
                                                                                         <td className="border border-slate-400 p-0 align-top bg-white w-20">
-                                                                                            <input type="text" className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none text-sm" value={obs.value} onChange={e => handleObservationValue(assignment.id, sIdx, rIdx, obsIdx, e.target.value)} />
+                                                                                            <Select
+                                                                                                value={obs.value || ''}
+                                                                                                onValueChange={val => handleObservationValue(assignment.id, sIdx, rIdx, obsIdx, val)}
+                                                                                            >
+                                                                                                <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
+                                                                                                    <SelectValue placeholder="—" />
+                                                                                                </SelectTrigger>
+                                                                                                <SelectContent>
+                                                                                                    <SelectItem value="OK">OK</SelectItem>
+                                                                                                    <SelectItem value="R/S">R/S</SelectItem>
+                                                                                                    <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                    <SelectItem value="Missing">Missing</SelectItem>
+                                                                                                </SelectContent>
+                                                                                            </Select>
                                                                                         </td>
                                                                                         <td className="border border-slate-400 p-0 bg-white">
-                                                                                            <button 
-                                                                                                onClick={() => handleObservationStatus(assignment.id, sIdx, rIdx, obsIdx, obs.status === 'complete' ? 'pending' : 'complete')} 
+                                                                                            <button
+                                                                                                onClick={() => handleObservationStatus(assignment.id, sIdx, rIdx, obsIdx, obs.status === 'complete' ? 'pending' : 'complete')}
                                                                                                 className={`w-full h-full min-h-[32px] text-[10px] font-bold px-1 transition-colors ${obs.status === 'complete' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-green-100 hover:bg-green-200 text-green-800'}`}>
                                                                                                 {obs.status === 'complete' ? 'MARK PENDING' : 'MARK COMPLETE'}
                                                                                             </button>

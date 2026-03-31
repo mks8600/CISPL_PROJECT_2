@@ -215,7 +215,7 @@ export default function CompanyCompletedWorkPage() {
                                                     <thead>
                                                         <tr>
                                                             <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-green-50 w-[15%]">Serial No:</th>
-                                                            <th className="border border-slate-400 px-3 py-1.5 text-left font-medium" colSpan={5}>
+                                                            <th className="border border-slate-400 px-3 py-1.5 text-left font-medium" colSpan={7}>
                                                               <div className="flex items-center justify-between">
                                                                 <span>{item.section.serialNo || '—'}</span>
                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -228,7 +228,8 @@ export default function CompanyCompletedWorkPage() {
                                                             <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-left w-[25%] text-slate-700 shadow-sm">WELD IDENTIFICATION</th>
                                                             <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-16 text-slate-700 shadow-sm">SPOT NO</th>
                                                             <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-20 text-slate-700 shadow-sm">FILM SIZE</th>
-                                                            <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">OBSERVATION</th>
+                                                            <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">VENDOR OBSERVATION</th>
+                                                            <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">COMPANY OBSERVATION</th>
                                                             <th className="border-y border-slate-400 px-2 py-1 bg-slate-100 text-left text-slate-700 shadow-sm">REMARKS</th>
                                                         </tr>
                                                     </thead>
@@ -253,9 +254,13 @@ export default function CompanyCompletedWorkPage() {
                                                                         {vData.observations.length > 0 ? (
                                                                             <>
                                                                                 <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{vData.observations[0].label}</td>
-                                                                                <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-medium text-slate-800 border-b border-slate-200">
+                                                                                <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">
                                                                                     {vData.observations[0].value || '—'}
                                                                                     {vData.observations[0].status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
+                                                                                </td>
+                                                                                <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{vData.observations[0].label}</td>
+                                                                                <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">
+                                                                                    {vData.observations[0].companyValue || '—'}
                                                                                 </td>
                                                                                 <td rowSpan={obsCount} className="p-2 text-slate-700 whitespace-pre-wrap align-top bg-white w-48 font-medium">
                                                                                     {vData.remark !== undefined ? vData.remark : (row.remark || '—')}
@@ -264,7 +269,9 @@ export default function CompanyCompletedWorkPage() {
                                                                         ) : (
                                                                             <>
                                                                                 <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 text-slate-400 text-xs">N/A</td>
-                                                                                <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-20 text-slate-400 text-xs">N/A</td>
+                                                                                <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-24 text-slate-400 text-xs">N/A</td>
+                                                                                <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 text-slate-400 text-xs">N/A</td>
+                                                                                <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-24 text-slate-400 text-xs">N/A</td>
                                                                                 <td rowSpan={obsCount} className="p-2 text-slate-500 whitespace-pre-wrap align-top bg-white w-48 italic">
                                                                                     {vData.remark !== undefined ? vData.remark : (row.remark || '—')}
                                                                                 </td>
@@ -274,10 +281,14 @@ export default function CompanyCompletedWorkPage() {
                                                                     
                                                                     {vData.observations.slice(1).map((obs, offsetIdx) => (
                                                                         <tr key={offsetIdx + 1} className="border-b border-slate-200 last:border-b-0">
-                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium">{obs.label}</td>
-                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-medium text-slate-800">
+                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{obs.label}</td>
+                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">
                                                                                 {obs.value || '—'}
                                                                                 {obs.status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
+                                                                            </td>
+                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{obs.label}</td>
+                                                                            <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">
+                                                                                {obs.companyValue || '—'}
                                                                             </td>
                                                                         </tr>
                                                                     ))}
