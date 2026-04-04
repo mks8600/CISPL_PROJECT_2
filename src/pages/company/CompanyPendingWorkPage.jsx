@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,13 +34,14 @@ function formatDate(dateStr) {
 }
 
 export default function CompanyPendingWorkPage() {
+    const { user } = useAuth();
     const [pendingItems, setPendingItems] = useState([]);
     const [vendors, setVendors] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
     const [reassignVendor, setReassignVendor] = useState({});
 
     const loadData = () => {
-        const all = getFromStorage(ASSIGNED_KEY);
+        const all = getFromStorage(ASSIGNED_KEY).filter(a => a.companyId === user?.companyId);
         setVendors(getFromStorage(VENDORS_KEY));
 
         // Find submitted sheets that have:
@@ -64,7 +66,7 @@ export default function CompanyPendingWorkPage() {
         const onFocus = () => loadData();
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
-    }, []);
+    }, [user?.companyId]);
 
     const handleReassign = (assignmentId) => {
         const vendorId = reassignVendor[assignmentId];
@@ -108,6 +110,8 @@ export default function CompanyPendingWorkPage() {
             vendorId: vendor.id,
             vendorNo: vendor.vendorNo,
             vendorName: vendor.vendorName,
+            companyId: user?.companyId,
+            companyName: user?.companyName,
             status: 'pending', // Always require explicit acceptance for reassigned blocks
             assignedAt: new Date().toISOString(),
             sectionStatuses: pendingStatuses,

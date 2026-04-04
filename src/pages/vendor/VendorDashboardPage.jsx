@@ -190,12 +190,40 @@ export default function VendorDashboardPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Recent Assigned Orders</CardTitle>
-                        <CardDescription>View your most recent job assignments from the company</CardDescription>
+                        <CardDescription>Your most recent job assignments from companies</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="py-12 text-center text-slate-500 bg-slate-50 rounded border border-dashed">
-                            <p>Order tracking capabilities coming soon to the Vendor Portal.</p>
-                        </div>
+                        {myOrders.length === 0 ? (
+                            <div className="py-12 text-center text-slate-500 bg-slate-50 rounded border border-dashed">
+                                <Package className="h-10 w-10 mx-auto text-slate-300 mb-2" />
+                                <p>No orders assigned to you yet.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {myOrders.slice(0, 5).map((order) => (
+                                    <div key={order.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                                        <div>
+                                            <p className="font-medium text-slate-800 text-sm">
+                                                {order.sheet?.formData?.jobNo || '—'}
+                                            </p>
+                                            <p className="text-xs text-slate-500">
+                                                RS: {order.sheet?.formData?.rsNo || '—'} • {order.companyName || 'Unknown'}
+                                            </p>
+                                        </div>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                            order.submitted ? 'bg-green-100 text-green-800' :
+                                            order.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
+                                            order.status === 'declined' ? 'bg-red-100 text-red-800' :
+                                            'bg-amber-100 text-amber-800'
+                                        }`}>
+                                            {order.submitted ? 'Submitted' :
+                                             order.status === 'accepted' ? 'In Progress' :
+                                             order.status === 'declined' ? 'Declined' : 'Pending'}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>

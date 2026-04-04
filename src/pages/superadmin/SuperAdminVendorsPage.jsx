@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
-export default function ManageVendorsPage() {
+export default function SuperAdminVendorsPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [vendors, setVendors] = useState(() => {
         try {
@@ -45,7 +45,6 @@ export default function ManageVendorsPage() {
         setIsLoading(true);
 
         try {
-            // Simulate API call
             await new Promise((resolve) => setTimeout(resolve, 500));
 
             const newVendor = {
@@ -56,7 +55,7 @@ export default function ManageVendorsPage() {
             };
 
             setVendors((prev) => [newVendor, ...prev]);
-            toast.success('Vendor created successfully!');
+            toast.success('Vendor added to global marketplace successfully!');
 
             setFormData({ vendorNo: '', vendorName: '' });
         } catch {
@@ -100,36 +99,37 @@ export default function ManageVendorsPage() {
 
     const handleDeleteVendor = (e, id) => {
         e.stopPropagation();
+        if (!window.confirm('Are you sure you want to revoke this vendor? They will lose marketplace access.')) return;
         setVendors(prev => prev.filter(vendor => vendor.id !== id));
-        toast.success('Vendor deleted successfully!');
+        toast.success('Vendor revoked from marketplace successfully!');
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6 pb-12">
+        <div className="max-w-6xl mx-auto space-y-6 pb-12">
             {/* Header */}
             <div>
                 <div className="flex items-center gap-2 mb-2">
-                    <Users className="h-6 w-6 text-slate-700" />
-                    <h1 className="text-2xl font-bold text-slate-900">Manage Vendors</h1>
+                    <Users className="h-6 w-6 text-indigo-700" />
+                    <h1 className="text-2xl font-bold text-slate-900">Global Vendor Network</h1>
                 </div>
-                <p className="text-slate-500">Create and manage your vendors</p>
+                <p className="text-slate-500">Manage all vendors operating across all organizations in the platform.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column: Create Form */}
                 <div className="lg:col-span-1">
                     <form onSubmit={handleSubmit}>
-                        <Card>
+                        <Card className="border-indigo-100">
                             <CardHeader>
-                                <CardTitle>Create New Vendor</CardTitle>
-                                <CardDescription>Enter the vendor information</CardDescription>
+                                <CardTitle className="text-indigo-900">Onboard Market Vendor</CardTitle>
+                                <CardDescription>Enter vendor profile details</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="vendorNo">Vendor No *</Label>
+                                    <Label htmlFor="vendorNo">Vendor Tag Number *</Label>
                                     <Input
                                         id="vendorNo"
-                                        placeholder="e.g., VEND-2026-001"
+                                        placeholder="e.g., GLOBAL-2026-V1"
                                         value={formData.vendorNo}
                                         onChange={(e) => handleChange('vendorNo', e.target.value)}
                                         required
@@ -137,10 +137,10 @@ export default function ManageVendorsPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="vendorName">Vendor Name *</Label>
+                                    <Label htmlFor="vendorName">Vendor Official Name *</Label>
                                     <Input
                                         id="vendorName"
-                                        placeholder="e.g., Global Supplies Inc."
+                                        placeholder="e.g., Global Industrial Diagnostics"
                                         value={formData.vendorName}
                                         onChange={(e) => handleChange('vendorName', e.target.value)}
                                         required
@@ -150,10 +150,10 @@ export default function ManageVendorsPage() {
                                 <div className="pt-2">
                                     <Button
                                         type="submit"
-                                        className="bg-blue-600 hover:bg-blue-700 w-full"
+                                        className="bg-indigo-600 hover:bg-indigo-700 w-full"
                                         disabled={isLoading}
                                     >
-                                        {isLoading ? 'Creating...' : 'Create Vendor'}
+                                        {isLoading ? 'Onboarding...' : 'Onboard onto Network'}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -164,17 +164,17 @@ export default function ManageVendorsPage() {
                 {/* Right Column: Vendors List */}
                 <div className="lg:col-span-2 space-y-4">
                     <Card>
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-3 border-b border-slate-100">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
-                                    <CardTitle>Vendors List</CardTitle>
-                                    <CardDescription>View and search all created vendors</CardDescription>
+                                    <CardTitle>Market Network Roster</CardTitle>
+                                    <CardDescription>View, secure, and manage global marketplace resources</CardDescription>
                                 </div>
                                 <div className="relative w-full sm:w-64">
                                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                                     <Input
                                         type="search"
-                                        placeholder="Search vendors..."
+                                        placeholder="Search network..."
                                         className="pl-9"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -182,12 +182,12 @@ export default function ManageVendorsPage() {
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pt-4">
                             {vendors.length === 0 ? (
                                 <div className="text-center py-12 text-slate-500">
                                     <FileText className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                                    <p>No vendors found.</p>
-                                    <p className="text-sm">Create a new vendor to see it listed here.</p>
+                                    <p>No globally enrolled vendors.</p>
+                                    <p className="text-sm">Onboard a vendor to share them across organizations.</p>
                                 </div>
                             ) : filteredVendors.length === 0 ? (
                                 <div className="text-center py-8 text-slate-500">
@@ -199,35 +199,35 @@ export default function ManageVendorsPage() {
                                         <div
                                             key={vendor.id}
                                             onClick={() => openLoginModal(vendor)}
-                                            className="flex items-center justify-between p-4 rounded-lg border bg-white hover:border-blue-400 cursor-pointer transition-colors"
+                                            className="flex items-center justify-between p-4 rounded-lg border bg-white hover:border-indigo-400 cursor-pointer transition-colors"
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 rounded bg-blue-50 flex items-center justify-center text-blue-600">
+                                                <div className="h-10 w-10 rounded bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
                                                     <Users className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-slate-900">{vendor.vendorNo}</p>
-                                                    <p className="text-sm text-slate-500">{vendor.vendorName}</p>
+                                                    <p className="font-bold text-slate-900 tracking-tight">{vendor.vendorName}</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5 font-mono">Tag: {vendor.vendorNo}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right text-sm text-slate-500 hidden sm:block">
                                                     {vendor.loginId ? (
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                            Credentials Set
+                                                            Login Provisioned
                                                         </span>
                                                     ) : (
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                                            No Credentials
+                                                            Pending Access
                                                         </span>
                                                     )}
                                                 </div>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
+                                                    className="text-red-400 hover:text-red-700 hover:bg-red-50 h-8 w-8"
                                                     onClick={(e) => handleDeleteVendor(e, vendor.id)}
-                                                    title="Delete Vendor"
+                                                    title="Revoke Vendor Authorization"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
@@ -245,40 +245,40 @@ export default function ManageVendorsPage() {
             <Dialog open={!!selectedVendor} onOpenChange={(open) => !open && setSelectedVendor(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Set Vendor Credentials</DialogTitle>
+                        <DialogTitle className="text-indigo-900">Provision Market Access</DialogTitle>
                         <DialogDescription>
-                            Assign a Login ID and Password for {selectedVendor?.vendorName} to access the vendor portal.
+                            Assign systemic login credentials for {selectedVendor?.vendorName} to directly access the global portal.
                         </DialogDescription>
                     </DialogHeader>
 
                     <form onSubmit={handleSaveCredentials} className="space-y-4 pt-4">
                         <div className="space-y-2">
-                            <Label htmlFor="loginId">Login ID (Email or Username)</Label>
+                            <Label htmlFor="loginId">Assigned Vendor ID</Label>
                             <Input
                                 id="loginId"
                                 value={loginData.loginId}
                                 onChange={(e) => setLoginData(prev => ({ ...prev, loginId: e.target.value }))}
-                                placeholder="e.g., vendor@example.com"
+                                placeholder="e.g., global_vendor_01"
                                 required
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password">Password</Label>
+                            <Label htmlFor="password">Assigned Security Passkey</Label>
                             <Input
                                 id="password"
                                 type="text"
                                 value={loginData.password}
                                 onChange={(e) => setLoginData(prev => ({ ...prev, password: e.target.value }))}
-                                placeholder="Enter password"
+                                placeholder="Enter secure key"
                                 required
                             />
                         </div>
                         <div className="flex justify-end gap-3 pt-4">
                             <Button type="button" variant="outline" onClick={() => setSelectedVendor(null)}>
-                                Cancel
+                                Cancel Identity
                             </Button>
-                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                                Save Credentials
+                            <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700">
+                                Provision Network Access
                             </Button>
                         </div>
                     </form>

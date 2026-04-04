@@ -133,7 +133,7 @@ export default function VendorReassignedTasksPage() {
                                                 <span className="font-normal text-slate-500 ml-2">— {formatDate(fd.date)}</span>
                                             </p>
                                             <p className="text-sm text-slate-500">
-                                                RS No: {fd.rsNo || '—'} • Assigned: {formatDate(assignment.assignedAt)}
+                                                By: <span className="font-medium text-slate-700">{assignment.companyName || 'Unknown Company'}</span> • RS No: {fd.rsNo || '—'} • Assigned: {formatDate(assignment.assignedAt)}
                                             </p>
                                         </div>
                                     </div>

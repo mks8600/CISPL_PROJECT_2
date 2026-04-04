@@ -8,7 +8,6 @@ import CompanyOrdersPage from './pages/company/CompanyOrdersPage';
 import CompanyOrderDetailsPage from './pages/company/CompanyOrderDetailsPage';
 import CreateOrderPage from './pages/company/CreateOrderPage';
 import ManageJobPage from './pages/company/ManageJobPage';
-import ManageVendorsPage from './pages/company/ManageVendorsPage';
 import CompanyOrderStatusPage from './pages/company/CompanyOrderStatusPage';
 import CompanyPendingWorkPage from './pages/company/CompanyPendingWorkPage';
 import CompanyCompletedWorkPage from './pages/company/CompanyCompletedWorkPage';
@@ -20,6 +19,13 @@ import VendorOrdersPage from './pages/vendor/VendorOrdersPage';
 import VendorOrderProgressPage from './pages/vendor/VendorOrderProgressPage';
 import VendorReassignedTasksPage from './pages/vendor/VendorReassignedTasksPage';
 
+// Super Admin
+import SuperAdminLayout from './layouts/SuperAdminLayout';
+import SuperAdminLoginPage from './pages/superadmin/SuperAdminLoginPage';
+import SuperAdminDashboardPage from './pages/superadmin/SuperAdminDashboardPage';
+import SuperAdminOrganizationsPage from './pages/superadmin/SuperAdminOrganizationsPage';
+import SuperAdminVendorsPage from './pages/superadmin/SuperAdminVendorsPage';
+
 function App() {
   return (
     <AuthProvider>
@@ -28,6 +34,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/company/login" element={<CompanyLoginPage />} />
           <Route path="/vendor/login" element={<VendorLoginPage />} />
+          <Route path="/superadmin/login" element={<SuperAdminLoginPage />} />
 
           <Route element={<CompanyLayout />}>
             <Route path="/company/dashboard" element={<CompanyDashboardPage />} />
@@ -35,7 +42,6 @@ function App() {
             <Route path="/company/orders/create" element={<CreateOrderPage />} />
             <Route path="/company/orders/:id" element={<CompanyOrderDetailsPage />} />
             <Route path="/company/manage-job" element={<ManageJobPage />} />
-            <Route path="/company/manage-vendors" element={<ManageVendorsPage />} />
             <Route path="/company/order-status" element={<CompanyOrderStatusPage />} />
             <Route path="/company/pending-work" element={<CompanyPendingWorkPage />} />
             <Route path="/company/completed-work" element={<CompanyCompletedWorkPage />} />
@@ -46,6 +52,12 @@ function App() {
             <Route path="/vendor/orders" element={<VendorOrdersPage />} />
             <Route path="/vendor/reassigned-tasks" element={<VendorReassignedTasksPage />} />
             <Route path="/vendor/order-progress" element={<VendorOrderProgressPage />} />
+          </Route>
+
+          <Route element={<SuperAdminLayout />}>
+            <Route path="/superadmin/dashboard" element={<SuperAdminDashboardPage />} />
+            <Route path="/superadmin/organizations" element={<SuperAdminOrganizationsPage />} />
+            <Route path="/superadmin/vendors" element={<SuperAdminVendorsPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

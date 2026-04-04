@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,17 @@ export default function VendorLoginPage() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const { login } = useAuth();
+    const { login, isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
+
+    // Cross-portal protection
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            if (user.portalType === 'vendor') navigate('/vendor/dashboard', { replace: true });
+            else if (user.portalType === 'company') navigate('/company/dashboard', { replace: true });
+            else if (user.portalType === 'superadmin') navigate('/superadmin/dashboard', { replace: true });
+        }
+    }, [isAuthenticated, user, navigate]);
 
     const handleLogin = async (e) => {
         e.preventDefault();

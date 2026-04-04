@@ -19,12 +19,12 @@ import { toast } from 'sonner';
 const FILM_SIZES_KEY = 'crystal_film_sizes';
 const ASSIGNED_KEY = 'crystal_assigned_sheets';
 
-function getAssignedSheets() {
+function getAssignedSheets(companyId) {
     try {
         const saved = localStorage.getItem(ASSIGNED_KEY);
         const all = saved ? JSON.parse(saved) : [];
-        // Only count root assignments (not reassigned children)
-        return all.filter((a) => !a.reassignedFrom);
+        // Only count root assignments (not reassigned children) and filter by company
+        return all.filter((a) => !a.reassignedFrom && a.companyId === companyId);
     } catch {
         return [];
     }
@@ -34,11 +34,13 @@ export default function CompanyDashboardPage() {
   const { user } = useAuth();
   const [sheets, setSheets] = useState([]);
   useEffect(() => {
-    const load = () => setSheets(getAssignedSheets());
-    load();
-    window.addEventListener('focus', load);
-    return () => window.removeEventListener('focus', load);
-  }, []);
+    if (user?.companyId) {
+      const load = () => setSheets(getAssignedSheets(user.companyId));
+      load();
+      window.addEventListener('focus', load);
+      return () => window.removeEventListener('focus', load);
+    }
+  }, [user?.companyId]);
 
   const totalCount = sheets.length;
   const pendingCount = sheets.filter((a) => a.status === 'pending').length;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -10,17 +10,27 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export default function CompanyLoginPage() {
+  const [orgCode, setOrgCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+
+  // Cross-portal protection: redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.portalType === 'company') navigate('/company/dashboard', { replace: true });
+      else if (user.portalType === 'vendor') navigate('/vendor/dashboard', { replace: true });
+      else if (user.portalType === 'superadmin') navigate('/superadmin/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const success = await login(email, password, 'company');
+    const success = await login(email, password, 'company', orgCode);
 
     if (success) {
       toast.success('Login successful!');
@@ -56,6 +66,18 @@ export default function CompanyLoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="orgCode" className="text-blue-100">Org Code</Label>
+                <Input
+                  id="orgCode"
+                  type="text"
+                  placeholder="e.g. CRYSTAL"
+                  value={orgCode}
+                  onChange={(e) => setOrgCode(e.target.value)}
+                  required
+                  className="bg-white/10 border-white/20 text-white placeholder:text-blue-300 uppercase"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-blue-100">User ID</Label>
                 <Input
@@ -97,8 +119,9 @@ export default function CompanyLoginPage() {
             </form>
 
             <div className="mt-6 pt-6 border-t border-white/10">
-              <p className="text-xs text-blue-300 text-center">
-                Demo credentials: admin / admin
+              <p className="text-xs text-blue-300 text-center flex flex-col gap-1">
+                <span>Org Code: <strong>CRYSTAL</strong> | Demo User: <strong>admin</strong> | Pass: <strong>admin</strong></span>
+                <span>Org Code: <strong>ACME</strong> | Demo User: <strong>acmeadmin</strong> | Pass: <strong>admin</strong></span>
               </p>
             </div>
           </CardContent>

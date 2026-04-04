@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/context/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,11 +54,18 @@ function saveSheetToStorage(sheets) {
 }
 
 export default function CreateOrderPage() {
+  const { user } = useAuth();
   const [formData, setFormData] = useState(getEmptyFormData());
   const [sections, setSections] = useState([createEmptySection('1')]);
-  const [savedSheets, setSavedSheets] = useState(getSavedSheets());
+  const [savedSheets, setSavedSheets] = useState([]);
   const [activeSheetId, setActiveSheetId] = useState(null);
   const [showSavedSheets, setShowSavedSheets] = useState(false);
+
+  // Data isolation: only load this company's sheets
+  useEffect(() => {
+    const allSheets = getSavedSheets();
+    setSavedSheets(allSheets.filter(s => s.companyId === user?.companyId));
+  }, [user?.companyId]);
 
   // Load jobs from localStorage (same data as Manage Job No page)
   const [jobsList, setJobsList] = useState([]);
@@ -165,29 +173,32 @@ export default function CreateOrderPage() {
       id: activeSheetId || `sheet-${Date.now()}`,
       formData,
       sections,
+      companyId: user?.companyId,
+      companyName: user?.companyName,
       savedAt: new Date().toISOString(),
     };
 
-    let updatedSheets;
+    // Merge into full global storage (preserving other companies' sheets)
+    const allSheets = getSavedSheets();
+    let mySheets = allSheets.filter(s => s.companyId === user?.companyId);
+    const otherSheets = allSheets.filter(s => s.companyId !== user?.companyId);
+
     if (activeSheetId) {
-      // Update existing sheet
-      updatedSheets = savedSheets.map((s) => (s.id === activeSheetId ? sheetData : s));
+      mySheets = mySheets.map((s) => (s.id === activeSheetId ? sheetData : s));
     } else {
-      // Check for duplicate (same date + jobNo)
-      const duplicate = savedSheets.find(
+      const duplicate = mySheets.find(
         (s) => s.formData.date === formData.date && s.formData.jobNo === formData.jobNo
       );
       if (duplicate) {
-        // Overwrite the duplicate
         sheetData.id = duplicate.id;
-        updatedSheets = savedSheets.map((s) => (s.id === duplicate.id ? sheetData : s));
+        mySheets = mySheets.map((s) => (s.id === duplicate.id ? sheetData : s));
       } else {
-        updatedSheets = [sheetData, ...savedSheets];
+        mySheets = [sheetData, ...mySheets];
       }
     }
 
-    saveSheetToStorage(updatedSheets);
-    setSavedSheets(updatedSheets);
+    saveSheetToStorage([...mySheets, ...otherSheets]);
+    setSavedSheets(mySheets);
     setActiveSheetId(sheetData.id);
     toast.success('Sheet saved successfully!');
   };
@@ -208,9 +219,11 @@ export default function CreateOrderPage() {
 
   const handleDeleteSheet = (e, sheetId) => {
     e.stopPropagation();
-    const updatedSheets = savedSheets.filter((s) => s.id !== sheetId);
-    saveSheetToStorage(updatedSheets);
-    setSavedSheets(updatedSheets);
+    if (!window.confirm('Are you sure you want to delete this sheet?')) return;
+    const allSheets = getSavedSheets();
+    const updatedAll = allSheets.filter((s) => s.id !== sheetId);
+    saveSheetToStorage(updatedAll);
+    setSavedSheets(updatedAll.filter(s => s.companyId === user?.companyId));
     if (activeSheetId === sheetId) {
       setActiveSheetId(null);
     }

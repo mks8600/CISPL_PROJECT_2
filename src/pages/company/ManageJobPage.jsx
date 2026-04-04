@@ -1,5 +1,6 @@
 import { Briefcase, Search, FileText, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { toast } from 'sonner';
 
 export default function ManageJobPage() {
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [jobs, setJobs] = useState(() => {
         try {
             const saved = localStorage.getItem('crystal_jobs');
-            return saved ? JSON.parse(saved) : [];
+            const allJobs = saved ? JSON.parse(saved) : [];
+            return allJobs.filter(j => j.companyId === user?.companyId);
         } catch {
             return [];
         }
@@ -19,8 +22,12 @@ export default function ManageJobPage() {
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
-        localStorage.setItem('crystal_jobs', JSON.stringify(jobs));
-    }, [jobs]);
+        // Only override the jobs specific to this company, preserve others
+        const saved = localStorage.getItem('crystal_jobs');
+        const allJobs = saved ? JSON.parse(saved) : [];
+        const otherJobs = allJobs.filter(j => j.companyId !== user?.companyId);
+        localStorage.setItem('crystal_jobs', JSON.stringify([...otherJobs, ...jobs]));
+    }, [jobs, user?.companyId]);
 
     const [formData, setFormData] = useState({
         jobNo: '',
@@ -39,6 +46,7 @@ export default function ManageJobPage() {
                 id: Date.now().toString(),
                 jobNo: formData.jobNo,
                 companyName: formData.companyName,
+                companyId: user?.companyId,
                 createdAt: new Date().toISOString(),
             };
 

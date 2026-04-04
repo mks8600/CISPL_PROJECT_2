@@ -9,14 +9,20 @@ export default function HomePage() {
       {/* Header */}
       <header className="border-b border-white/10">
         <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <Factory className="h-6 w-6 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-600 rounded-lg">
+                <Factory className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">Crystal Industries</h1>
+                <p className="text-xs text-blue-200">Industrial Films Manufacturing</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">Crystal Industries</h1>
-              <p className="text-xs text-blue-200">Industrial Films Manufacturing</p>
-            </div>
+            
+            <Button asChild variant="outline" size="sm" className="bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white">
+              <Link to="/superadmin/login">Super Admin Login</Link>
+            </Button>
           </div>
         </div>
       </header>

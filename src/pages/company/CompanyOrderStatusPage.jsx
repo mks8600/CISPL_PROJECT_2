@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,8 @@ const ASSIGNED_KEY = 'crystal_assigned_sheets';
 function getAssignments() {
     try {
         const saved = localStorage.getItem(ASSIGNED_KEY);
-        return saved ? JSON.parse(saved) : [];
+        const all = saved ? JSON.parse(saved) : [];
+        return all;
     } catch {
         return [];
     }
@@ -33,6 +35,7 @@ function formatDate(dateStr) {
 }
 
 export default function CompanyOrderStatusPage() {
+    const { user } = useAuth();
     const [assignments, setAssignments] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
     const [descriptions, setDescriptions] = useState({});
@@ -42,10 +45,10 @@ export default function CompanyOrderStatusPage() {
         const onFocus = () => loadData();
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
-    }, []);
+    }, [user?.companyId]);
 
     const loadData = () => {
-        const all = getAssignments();
+        const all = getAssignments().filter(a => a.companyId === user?.companyId);
 
         // Auto-fix legacy data: if a sheet is submitted, any 'pending' sections should be 'complete'
         let dataChanged = false;

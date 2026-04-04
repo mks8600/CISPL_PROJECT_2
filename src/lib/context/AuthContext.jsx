@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { companyUsers, vendorUsers } from '@/lib/mock-data/users';
+import { companyUsers, vendorUsers, mockCompanies, superAdminUser } from '@/lib/mock-data/users';
 
 const AUTH_STORAGE_KEY = 'crystal_auth';
 
@@ -27,26 +27,84 @@ export function AuthProvider({ children }) {
 
   // Load auth state from localStorage on mount - this is the intended pattern for hydration
   useEffect(() => {
+    // Ensure global vendors are seeded for immediate platform availability
+    if (!localStorage.getItem('crystal_vendors')) {
+      const seededVendors = vendorUsers.map((v, idx) => ({
+        id: Date.now().toString() + idx,
+        vendorNo: v.vendorId,
+        vendorName: v.companyName,
+        loginId: v.email,
+        password: v.password,
+        createdAt: new Date().toISOString()
+      }));
+      localStorage.setItem('crystal_vendors', JSON.stringify(seededVendors));
+    }
+
     const initial = getInitialAuthState();
     setAuthState(initial);
     setIsLoading(false);
   }, []);
 
-  const login = async (email, password, portal) => {
+  const login = async (rawEmail, rawPassword, portal, rawOrgCode = null) => {
     // Simulate network delay
     await new Promise((resolve) => setTimeout(resolve, 500));
 
+    const email = rawEmail?.trim();
+    const password = rawPassword?.trim();
+    const orgCode = rawOrgCode?.trim().toUpperCase();
+
     if (portal === 'company') {
-      const foundUser = companyUsers.find(
-        (u) => u.email === email && u.password === password
+      if (!orgCode) return false;
+      let dynamicCompanies = [];
+      try {
+        const storedCompanies = localStorage.getItem('crystal_companies');
+        if (storedCompanies) {
+          dynamicCompanies = JSON.parse(storedCompanies);
+        } else {
+          dynamicCompanies = mockCompanies;
+        }
+      } catch {
+        dynamicCompanies = mockCompanies;
+      }
+
+      const company = dynamicCompanies.find(c => c.orgCode?.toUpperCase() === orgCode);
+      if (!company) return false;
+      // Load dynamic company users from storage
+      let dynamicUsers = [];
+      try {
+        const storedUsers = localStorage.getItem('crystal_company_users');
+        if (storedUsers) {
+          dynamicUsers = JSON.parse(storedUsers);
+        }
+      } catch {
+        // use empty array
+      }
+
+      let foundUser = dynamicUsers.find(
+        (u) => 
+          u.email?.toLowerCase() === email?.toLowerCase() && 
+          u.password === password && 
+          u.companyId === company.id
       );
+
+      if (!foundUser) {
+        // Fallback to mock users strictly binding to the original mock companyIds
+        foundUser = companyUsers.find(
+          (u) => 
+            u.email?.toLowerCase() === email?.toLowerCase() && 
+            u.password === password && 
+            (u.companyId === company.id || (orgCode === 'CRYSTAL' && u.companyId === 'comp-1') || (orgCode === 'ACME' && u.companyId === 'comp-2'))
+        );
+      }
+
       if (foundUser) {
         const { password: _pwd, ...userWithoutPassword } = foundUser;
-        setAuthState({ user: userWithoutPassword, isAuthenticated: true });
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user: userWithoutPassword }));
+        const finalUser = { ...userWithoutPassword, companyName: company.name };
+        setAuthState({ user: finalUser, isAuthenticated: true });
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user: finalUser }));
         return true;
       }
-    } else {
+    } else if (portal === 'vendor') {
       // Dynamic Vendor Login
       let dynamicVendors = [];
       try {
@@ -59,7 +117,7 @@ export function AuthProvider({ children }) {
       }
 
       const foundDynamicVendor = dynamicVendors.find(
-        (v) => v.loginId === email && v.password === password
+        (v) => v.loginId?.trim().toLowerCase() === email?.toLowerCase() && v.password?.trim() === password
       );
 
       if (foundDynamicVendor) {
@@ -81,6 +139,13 @@ export function AuthProvider({ children }) {
       );
       if (foundMockUser) {
         const { password: _pwd, ...userWithoutPassword } = foundMockUser;
+        setAuthState({ user: userWithoutPassword, isAuthenticated: true });
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user: userWithoutPassword }));
+        return true;
+      }
+    } else if (portal === 'superadmin') {
+      if (email === superAdminUser.email && password === superAdminUser.password) {
+        const { password: _pwd, ...userWithoutPassword } = superAdminUser;
         setAuthState({ user: userWithoutPassword, isAuthenticated: true });
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user: userWithoutPassword }));
         return true;

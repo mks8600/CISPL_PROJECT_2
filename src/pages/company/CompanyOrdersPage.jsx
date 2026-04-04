@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/context/AuthContext';
 import { ClipboardList, Send, Trash2, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -35,9 +36,10 @@ function formatDate(dateStr) {
 }
 
 export default function CompanyOrdersPage() {
-  const [sheets, setSheets] = useState(getFromStorage(SHEETS_KEY));
+  const { user } = useAuth();
+  const [sheets, setSheets] = useState(getFromStorage(SHEETS_KEY).filter(s => s.companyId === user?.companyId));
   const [vendors, setVendors] = useState(getFromStorage(VENDORS_KEY));
-  const [assignedSheets, setAssignedSheets] = useState(getFromStorage(ASSIGNED_KEY));
+  const [assignedSheets, setAssignedSheets] = useState(getFromStorage(ASSIGNED_KEY).filter(a => a.companyId === user?.companyId));
 
   const [selectedSheetId, setSelectedSheetId] = useState('');
   const [selectedVendorId, setSelectedVendorId] = useState('');
@@ -47,14 +49,14 @@ export default function CompanyOrdersPage() {
   // Refresh list on mount and on focus (in case sheets/vendors were updated in another tab)
   useEffect(() => {
     const loadData = () => {
-      setSheets(getFromStorage(SHEETS_KEY));
+      setSheets(getFromStorage(SHEETS_KEY).filter(s => s.companyId === user?.companyId));
       setVendors(getFromStorage(VENDORS_KEY));
-      setAssignedSheets(getFromStorage(ASSIGNED_KEY));
+      setAssignedSheets(getFromStorage(ASSIGNED_KEY).filter(a => a.companyId === user?.companyId));
     };
     loadData(); // load on mount
     window.addEventListener('focus', loadData);
     return () => window.removeEventListener('focus', loadData);
-  }, []);
+  }, [user?.companyId]);
 
   const handleAssign = () => {
     if (!selectedSheetId || !selectedVendorId) {
@@ -87,6 +89,8 @@ export default function CompanyOrdersPage() {
       vendorId: vendor.id,
       vendorNo: vendor.vendorNo,
       vendorName: vendor.vendorName,
+      companyId: user?.companyId,
+      companyName: user?.companyName,
       status: 'pending', // pending | accepted | declined
       assignedAt: new Date().toISOString(),
     };
@@ -101,9 +105,11 @@ export default function CompanyOrdersPage() {
   };
 
   const handleDeleteAssignment = (assignId) => {
-    const updated = assignedSheets.filter((a) => a.id !== assignId);
+    if (!window.confirm('Are you sure you want to delete this assignment? This action cannot be undone.')) return;
+    const all = getFromStorage(ASSIGNED_KEY);
+    const updated = all.filter((a) => a.id !== assignId);
     localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-    setAssignedSheets(updated);
+    setAssignedSheets(updated.filter(a => a.companyId === user?.companyId));
     toast.success('Assignment removed.');
   };
 

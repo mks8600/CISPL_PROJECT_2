@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, CheckCircle2, Printer } from 'lucide-react';
+import { ChevronDown, ChevronUp, CheckCircle2, Printer, Download } from 'lucide-react';
 
 const ASSIGNED_KEY = 'crystal_assigned_sheets';
 
@@ -91,6 +92,7 @@ function isChainFullyComplete(assignmentId, allAssignments) {
 }
 
 export default function CompanyCompletedWorkPage() {
+    const { user } = useAuth();
     const [completedItems, setCompletedItems] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
 
@@ -99,10 +101,45 @@ export default function CompanyCompletedWorkPage() {
         const onFocus = () => loadData();
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
-    }, []);
+    }, [user?.companyId]);
+
+    const exportToCSV = (assignment) => {
+        const fd = assignment.sheet.formData;
+        const allSections = assignment.resolvedSections || [];
+        
+        let csv = 'Job No,Date,RS No,Vendor,Serial No,Weld Description,Spot No,Film Size,Observations,Remark\n';
+        
+        allSections.forEach(({ section, vDataMap }) => {
+            (section.rows || []).forEach((row, rIdx) => {
+                const vData = vDataMap?.[rIdx] || {};
+                const obsStr = (vData.observations || []).map(o => `${o.label}:${o.value||'N/A'}`).join(' | ');
+                const line = [
+                    `"${fd.jobNo || ''}"`,
+                    `"${formatDate(fd.date)}"`,
+                    `"${fd.rsNo || ''}"`,
+                    `"${assignment.vendorName || ''}"`,
+                    `"${section.serialNo || ''}"`,
+                    `"${(row.jobWeldDescription || '').replace(/"/g, '""')}"`,
+                    `"${vData.spotNo || ''}"`,
+                    `"${vData.filmSize || ''}"`,
+                    `"${obsStr}"`,
+                    `"${(vData.remark || row.remark || '').replace(/"/g, '""')}"`
+                ].join(',');
+                csv += line + '\n';
+            });
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `completed_${fd.jobNo || 'sheet'}_${fd.rsNo || 'export'}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
 
     const loadData = () => {
-        const all = getAssignments();
+        const all = getAssignments().filter(a => a.companyId === user?.companyId);
 
         // Find "root" assignments (ones that are NOT reassigned from another)
         // that have their entire chain fully complete
@@ -198,14 +235,24 @@ export default function CompanyCompletedWorkPage() {
                                                 <div><span className="text-slate-500">Vendor:</span> <span className="font-semibold text-slate-900 ml-1">{assignment.vendorName}</span></div>
                                                 <div><span className="text-slate-500">RS No:</span> <span className="font-semibold text-slate-900 ml-1">{fd.rsNo || '—'}</span></div>
                                             </div>
-                                            <Button 
-                                                onClick={() => window.print()}
-                                                variant="outline" 
-                                                className="print:hidden shrink-0 flex items-center gap-2 border-slate-300 hover:bg-slate-50"
-                                            >
-                                                <Printer className="h-4 w-4" />
-                                                Export PDF
-                                            </Button>
+                                            <div className="flex items-center gap-2">
+                                                <Button 
+                                                    onClick={() => exportToCSV(assignment)}
+                                                    variant="outline" 
+                                                    className="print:hidden shrink-0 flex items-center gap-2 border-green-300 text-green-700 hover:bg-green-50"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                    Export Excel
+                                                </Button>
+                                                <Button 
+                                                    onClick={() => window.print()}
+                                                    variant="outline" 
+                                                    className="print:hidden shrink-0 flex items-center gap-2 border-slate-300 hover:bg-slate-50"
+                                                >
+                                                    <Printer className="h-4 w-4" />
+                                                    Export PDF
+                                                </Button>
+                                            </div>
                                         </div>
 
                                         {/* All Resolved Sections */}

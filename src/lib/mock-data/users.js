@@ -1,3 +1,8 @@
+export const mockCompanies = [
+  { id: 'comp-1', orgCode: 'CRYSTAL', name: 'Crystal Industries' },
+  { id: 'comp-2', orgCode: 'ACME', name: 'Acme Corp' },
+];
+
 export const companyUsers = [
   {
     id: 'company-1',
@@ -6,6 +11,7 @@ export const companyUsers = [
     role: 'admin',
     portalType: 'company',
     password: 'admin',
+    companyId: 'comp-1',
   },
   {
     id: 'company-2',
@@ -14,6 +20,16 @@ export const companyUsers = [
     role: 'manager',
     portalType: 'company',
     password: 'demo123',
+    companyId: 'comp-1',
+  },
+  {
+    id: 'company-3',
+    email: 'acmeadmin',
+    name: 'Acme Administrator',
+    role: 'admin',
+    portalType: 'company',
+    password: 'admin',
+    companyId: 'comp-2',
   },
 ];
 
@@ -46,3 +62,12 @@ export const vendorUsers = [
     password: 'vendor123',
   },
 ];
+
+export const superAdminUser = {
+  id: 'super-admin-1',
+  email: 'superadmin',
+  name: 'Master Administrator',
+  role: 'superadmin',
+  portalType: 'superadmin',
+  password: 'admin',
+};
