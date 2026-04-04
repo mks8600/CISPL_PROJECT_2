@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   Building2,
   Menu,
-  X
+  X,
+  Calculator
 } from 'lucide-react';
 
 export function Sidebar({ portalType }) {
@@ -69,6 +70,11 @@ export function Sidebar({ portalType }) {
       title: 'Completed Works',
       href: '/company/completed-work',
       icon: <CheckCircle2 className="h-5 w-5" />,
+    },
+    {
+      title: 'Billing',
+      href: '/company/billing',
+      icon: <Calculator className="h-5 w-5" />,
     },
   ];
 

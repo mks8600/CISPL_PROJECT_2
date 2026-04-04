@@ -188,6 +188,20 @@ export default function CompanyCompletedWorkPage() {
                         const isExpanded = expandedId === assignment.id;
                         const allSections = assignment.resolvedSections || [];
 
+                        const filmSizeTotals = {};
+                        let totalSpotsAll = 0;
+                        allSections.forEach(item => {
+                            (item.section.rows || []).forEach((row, rIdx) => {
+                                const vData = item.vDataMap?.[rIdx];
+                                if (vData && vData.filmSize && vData.filmSize.trim() !== '') {
+                                    const size = vData.filmSize.trim();
+                                    const spotCount = parseInt(vData.spotNo) || 0;
+                                    filmSizeTotals[size] = (filmSizeTotals[size] || 0) + spotCount;
+                                    totalSpotsAll += spotCount;
+                                }
+                            });
+                        });
+
                         return (
                             <Card 
                                 key={assignment.id} 
@@ -346,6 +360,38 @@ export default function CompanyCompletedWorkPage() {
                                                 </table>
                                             ))}
                                         </div>
+
+                                        {/* Film Size Summary */}
+                                        {Object.keys(filmSizeTotals).length > 0 && (
+                                            <div className="px-4 pb-4">
+                                                <table className="w-full border-collapse border border-slate-400 text-sm mt-4">
+                                                    <thead>
+                                                        <tr>
+                                                            <th className="border border-slate-400 px-3 py-1.5 bg-blue-50 text-slate-800 text-left font-semibold shadow-sm" colSpan={2}>
+                                                                Film Size Summary
+                                                            </th>
+                                                        </tr>
+                                                        <tr>
+                                                            <th className="border border-slate-400 px-3 py-2 bg-slate-100 text-slate-700 text-left w-1/2 shadow-sm font-medium">Film Size</th>
+                                                            <th className="border border-slate-400 px-3 py-2 bg-slate-100 text-slate-700 text-left shadow-sm font-medium">Total Spot No.</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {Object.entries(filmSizeTotals).map(([size, total]) => (
+                                                            <tr key={size} className="border-b border-slate-300">
+                                                                <td className="border-r border-slate-400 px-3 py-2 bg-white font-medium text-slate-700">{size}</td>
+                                                                <td className="border border-slate-400 px-3 py-2 bg-white font-bold text-slate-900">{total}</td>
+                                                            </tr>
+                                                        ))}
+                                                        <tr className="border-t-2 border-slate-400">
+                                                            <td className="border-r border-slate-400 px-3 py-2 bg-slate-50 font-bold text-slate-800 text-right">Grand Total:</td>
+                                                            <td className="border border-slate-400 px-3 py-2 bg-blue-50/50 font-bold text-blue-900">{totalSpotsAll}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+
 
                                         {/* Submitted info */}
                                         {assignment.submittedAt && (

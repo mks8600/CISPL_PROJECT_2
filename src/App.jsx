@@ -11,6 +11,7 @@ import ManageJobPage from './pages/company/ManageJobPage';
 import CompanyOrderStatusPage from './pages/company/CompanyOrderStatusPage';
 import CompanyPendingWorkPage from './pages/company/CompanyPendingWorkPage';
 import CompanyCompletedWorkPage from './pages/company/CompanyCompletedWorkPage';
+import CompanyBillingPage from './pages/company/CompanyBillingPage';
 import CompanyLayout from './layouts/CompanyLayout';
 import VendorLayout from './layouts/VendorLayout';
 import VendorLoginPage from './pages/vendor/VendorLoginPage';
@@ -45,6 +46,7 @@ function App() {
             <Route path="/company/order-status" element={<CompanyOrderStatusPage />} />
             <Route path="/company/pending-work" element={<CompanyPendingWorkPage />} />
             <Route path="/company/completed-work" element={<CompanyCompletedWorkPage />} />
+            <Route path="/company/billing" element={<CompanyBillingPage />} />
           </Route>
 
           <Route element={<VendorLayout />}>
