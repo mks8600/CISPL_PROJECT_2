@@ -13,18 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
-const SHEETS_KEY = 'crystal_sheets';
-const VENDORS_KEY = 'crystal_vendors';
-const ASSIGNED_KEY = 'crystal_assigned_sheets';
-
-function getFromStorage(key) {
-  try {
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
-}
+import { sheetsApi, globalVendorsApi, assignmentsApi } from '@/lib/api/client';
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -37,28 +26,37 @@ function formatDate(dateStr) {
 
 export default function CompanyOrdersPage() {
   const { user } = useAuth();
-  const [sheets, setSheets] = useState(getFromStorage(SHEETS_KEY).filter(s => s.companyId === user?.companyId));
-  const [vendors, setVendors] = useState(getFromStorage(VENDORS_KEY));
-  const [assignedSheets, setAssignedSheets] = useState(getFromStorage(ASSIGNED_KEY).filter(a => a.companyId === user?.companyId));
+  const [sheets, setSheets] = useState([]);
+  const [vendors, setVendors] = useState([]);
+  const [assignedSheets, setAssignedSheets] = useState([]);
 
   const [selectedSheetId, setSelectedSheetId] = useState('');
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [selectedSections, setSelectedSections] = useState([]);
 
-  // Refresh list on mount and on focus (in case sheets/vendors were updated in another tab)
+  // Refresh list on mount and on focus
   useEffect(() => {
-    const loadData = () => {
-      setSheets(getFromStorage(SHEETS_KEY).filter(s => s.companyId === user?.companyId));
-      setVendors(getFromStorage(VENDORS_KEY));
-      setAssignedSheets(getFromStorage(ASSIGNED_KEY).filter(a => a.companyId === user?.companyId));
+    const loadData = async () => {
+      try {
+        const [sheetsData, vendorsData, assignmentsData] = await Promise.all([
+          sheetsApi.list(),
+          globalVendorsApi.list(),
+          assignmentsApi.list()
+        ]);
+        setSheets(sheetsData);
+        setVendors(vendorsData);
+        setAssignedSheets(assignmentsData);
+      } catch (err) {
+        toast.error('Failed to load data');
+      }
     };
-    loadData(); // load on mount
+    loadData();
     window.addEventListener('focus', loadData);
     return () => window.removeEventListener('focus', loadData);
   }, [user?.companyId]);
 
-  const handleAssign = () => {
+  const handleAssign = async () => {
     if (!selectedSheetId || !selectedVendorId) {
       toast.error('Please select both a sheet and a vendor.');
       return;
@@ -79,38 +77,37 @@ export default function CompanyOrdersPage() {
 
     const filteredSections = (sheet.sections || []).filter((_, idx) => selectedSections.includes(idx));
 
-    const assignment = {
-      id: `assign-${Date.now()}`,
-      sheetId: sheet.id,
-      sheet: {
-        ...sheet,
-        sections: filteredSections
-      },
-      vendorId: vendor.id,
-      vendorNo: vendor.vendorNo,
-      vendorName: vendor.vendorName,
-      companyId: user?.companyId,
-      companyName: user?.companyName,
-      status: 'pending', // pending | accepted | declined
-      assignedAt: new Date().toISOString(),
-    };
+    try {
+      const assignment = await assignmentsApi.create({
+        sheetId: sheet.id,
+        sheetData: {
+          ...sheet,
+          sections: filteredSections
+        },
+        vendorId: vendor.id,
+        vendorNo: vendor.vendor_no || vendor.vendorNo,
+        vendorName: vendor.vendor_name || vendor.vendorName,
+      });
 
-    const updated = [assignment, ...assignedSheets];
-    localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-    setAssignedSheets(updated);
-    setSelectedSheetId('');
-    setSelectedVendorId('');
-    setSelectedSections([]);
-    toast.success(`Assigned ${filteredSections.length} items to ${vendor.vendorName}!`);
+      setAssignedSheets([assignment, ...assignedSheets]);
+      setSelectedSheetId('');
+      setSelectedVendorId('');
+      setSelectedSections([]);
+      toast.success(`Assigned ${filteredSections.length} items to ${vendor.vendor_name || vendor.vendorName}!`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to assign sheet');
+    }
   };
 
-  const handleDeleteAssignment = (assignId) => {
+  const handleDeleteAssignment = async (assignId) => {
     if (!window.confirm('Are you sure you want to delete this assignment? This action cannot be undone.')) return;
-    const all = getFromStorage(ASSIGNED_KEY);
-    const updated = all.filter((a) => a.id !== assignId);
-    localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-    setAssignedSheets(updated.filter(a => a.companyId === user?.companyId));
-    toast.success('Assignment removed.');
+    try {
+      await assignmentsApi.delete(assignId);
+      setAssignedSheets(assignedSheets.filter((a) => a.id !== assignId));
+      toast.success('Assignment removed.');
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete assignment');
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -128,8 +125,9 @@ export default function CompanyOrdersPage() {
 
   const visibleAssignments = assignedSheets.filter((a) => {
     if (a.status !== 'accepted' || !a.submitted) return true;
-    const statuses = a.sectionStatuses || (a.sheet.sections || []).map(() => 'pending');
-    const reviewStatuses = a.reviewStatuses || (a.sheet.sections || []).map(() => null);
+    const sheetData = a.sheet_data || a.sheet || {};
+    const statuses = a.section_statuses || a.sectionStatuses || (sheetData.sections || []).map(() => 'pending');
+    const reviewStatuses = a.review_statuses || a.reviewStatuses || (sheetData.sections || []).map(() => null);
     if (!statuses || statuses.length === 0) return true;
     const isCompleted = statuses.every((s, i) => s === 'reassigned' || (s === 'complete' && reviewStatuses[i] === 'ok'));
     return !isCompleted;
@@ -141,17 +139,14 @@ export default function CompanyOrdersPage() {
 
     const completedSectionsIndices = new Set();
     assignedSheets.forEach((assignment) => {
-      if (assignment.sheetId === sheetId) {
-        // We match assignments by tracking which indices of the original sheet were assigned
-        // In this app, assignments carry a 'sections' array which are slices of the original
-        // But for filtering, we can check if the assigned section's serialNo matches
-        const sections = assignment.sheet.sections || [];
-        const sectionStatuses = assignment.sectionStatuses || sections.map(() => 'pending');
-        const reviewStatuses = assignment.reviewStatuses || sections.map(() => null);
+      if (assignment.sheet_id === sheetId || assignment.sheetId === sheetId) {
+        const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const sections = sheetData.sections || [];
+        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || sections.map(() => 'pending');
+        const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || sections.map(() => null);
 
         sections.forEach((sec, idx) => {
           if (sectionStatuses[idx] === 'complete' && reviewStatuses[idx] === 'ok') {
-            // Find which index this corresponds to in the root sheet
             const rootIdx = sheet.sections.findIndex(rs => rs.serialNo === sec.serialNo);
             if (rootIdx !== -1) completedSectionsIndices.add(rootIdx);
           }
@@ -210,8 +205,8 @@ export default function CompanyOrdersPage() {
                     </SelectItem>
                   ) : (
                     availableSheetsList.map((sheet) => (
-                      <SelectItem key={sheet.id} value={sheet.id}>
-                        <span className="font-semibold text-blue-800">RS No: {sheet.formData?.rsNo || 'N/A'}</span> — Job: {sheet.formData?.jobNo || 'N/A'} ({new Date(sheet.createdAt || sheet.formData?.date || Date.now()).toLocaleDateString()}) - {sheet.sections?.length || 0} sections
+                      <SelectItem key={sheet.id} value={String(sheet.id)}>
+                        <span className="font-semibold text-blue-800">RS No: {sheet.form_data?.rsNo || sheet.formData?.rsNo || 'N/A'}</span> — Job: {sheet.form_data?.jobNo || sheet.formData?.jobNo || 'N/A'} ({new Date(sheet.created_at || sheet.createdAt || sheet.form_data?.date || sheet.formData?.date || Date.now()).toLocaleDateString()}) - {sheet.sections?.length || 0} sections
                       </SelectItem>
                     ))
                   )}
@@ -231,8 +226,8 @@ export default function CompanyOrdersPage() {
                     <SelectItem value="_none" disabled>No vendors available</SelectItem>
                   ) : (
                     vendors.map((vendor) => (
-                      <SelectItem key={vendor.id} value={vendor.id}>
-                        {vendor.vendorNo} — {vendor.vendorName}
+                      <SelectItem key={vendor.id} value={String(vendor.id)}>
+                        {vendor.vendor_no || vendor.vendorNo} — {vendor.vendor_name || vendor.vendorName}
                       </SelectItem>
                     ))
                   )}
@@ -303,7 +298,10 @@ export default function CompanyOrdersPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {visibleAssignments.map((assignment) => (
+              {visibleAssignments.map((assignment) => {
+                const sheetData = assignment.sheet_data || assignment.sheet || {};
+                const formData = sheetData.form_data || sheetData.formData || {};
+                return (
                 <div
                   key={assignment.id}
                   className="border rounded-lg bg-white overflow-hidden"
@@ -319,23 +317,23 @@ export default function CompanyOrdersPage() {
                       </div>
                       <div>
                         <p className="font-semibold text-slate-800 flex items-center gap-2 flex-wrap">
-                          {assignment.sheet.formData.rsNo && (
+                          {formData.rsNo && (
                             <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded border border-blue-300 shadow-sm">
-                              RS NO: {assignment.sheet.formData.rsNo}
+                              RS NO: {formData.rsNo}
                             </span>
                           )}
-                          <span>{assignment.sheet.formData.jobNo}</span>
-                          <span className="font-normal text-slate-500">— {formatDate(assignment.sheet.formData.date)}</span>
+                          <span>{formData.jobNo}</span>
+                          <span className="font-normal text-slate-500">— {formatDate(formData.date)}</span>
                         </p>
                         <p className="text-sm text-slate-500 mt-0.5">
-                          Vendor: <span className="font-medium text-slate-700">{assignment.vendorName}</span> ({assignment.vendorNo})
+                          Vendor: <span className="font-medium text-slate-700">{assignment.vendor_name || assignment.vendorName}</span> ({assignment.vendor_no || assignment.vendorNo})
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       {getStatusBadge(assignment.status)}
                       <span className="text-xs text-slate-400 hidden sm:block">
-                        {formatDate(assignment.assignedAt)}
+                        {formatDate(assignment.assigned_at || assignment.assignedAt)}
                       </span>
                       <Button
                         variant="ghost"
@@ -358,15 +356,15 @@ export default function CompanyOrdersPage() {
                     <div className="border-t px-4 py-3 bg-slate-50">
                       <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">Sheet Details</h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                        <div><span className="text-slate-500">RS No:</span> <span className="font-medium">{assignment.sheet.formData.rsNo || '—'}</span></div>
-                        <div><span className="text-slate-500">Date:</span> <span className="font-medium">{formatDate(assignment.sheet.formData.date)}</span></div>
-                        <div><span className="text-slate-500">Job No:</span> <span className="font-medium">{assignment.sheet.formData.jobNo}</span></div>
+                        <div><span className="text-slate-500">RS No:</span> <span className="font-medium">{formData.rsNo || '—'}</span></div>
+                        <div><span className="text-slate-500">Date:</span> <span className="font-medium">{formatDate(formData.date)}</span></div>
+                        <div><span className="text-slate-500">Job No:</span> <span className="font-medium">{formData.jobNo}</span></div>
                       </div>
-                      {assignment.sheet.sections && assignment.sheet.sections.length > 0 && (
+                      {sheetData.sections && sheetData.sections.length > 0 && (
                         <div className="mt-4">
-                          <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">Sections ({assignment.sheet.sections.length})</h4>
+                          <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">Sections ({sheetData.sections.length})</h4>
                           <div className="space-y-3">
-                            {assignment.sheet.sections.map((section, i) => (
+                            {sheetData.sections.map((section, i) => (
                               <div key={i} className="text-sm text-slate-700 bg-white border rounded-md p-3 shadow-sm">
                                 <div className="font-medium flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
                                   <span>Serial No: {section.serialNo || '—'}</span>
@@ -398,7 +396,8 @@ export default function CompanyOrdersPage() {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

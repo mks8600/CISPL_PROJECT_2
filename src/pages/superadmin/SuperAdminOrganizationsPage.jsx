@@ -12,28 +12,26 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { mockCompanies } from '@/lib/mock-data/users'; 
+import { companiesApi } from '@/lib/api/client';
 
 export default function SuperAdminOrganizationsPage() {
     const [isLoading, setIsLoading] = useState(false);
-    const [organizations, setOrganizations] = useState(() => {
-        try {
-            const saved = localStorage.getItem('crystal_companies');
-            if (saved) return JSON.parse(saved);
-            
-            // Hydrate with mock data if entirely empty
-            localStorage.setItem('crystal_companies', JSON.stringify(mockCompanies));
-            return mockCompanies;
-        } catch {
-            return mockCompanies;
-        }
-    });
+    const [organizations, setOrganizations] = useState([]);
     
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
-        localStorage.setItem('crystal_companies', JSON.stringify(organizations));
-    }, [organizations]);
+        loadOrganizations();
+    }, []);
+
+    const loadOrganizations = async () => {
+        try {
+            const data = await companiesApi.list();
+            setOrganizations(data);
+        } catch (err) {
+            toast.error('Failed to load organizations');
+        }
+    };
 
     const [formData, setFormData] = useState({
         orgCode: '',
@@ -51,24 +49,10 @@ export default function SuperAdminOrganizationsPage() {
         setIsLoading(true);
 
         try {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            const isDuplicate = organizations.some(
-                org => org.orgCode.toUpperCase() === formData.orgCode.toUpperCase()
-            );
-
-            if (isDuplicate) {
-                toast.error('Organization Code must be strictly unique.');
-                setIsLoading(false);
-                return;
-            }
-
-            const newOrg = {
-                id: `comp-${Date.now()}`,
+            const newOrg = await companiesApi.create({
                 orgCode: formData.orgCode.toUpperCase(),
                 name: formData.name,
-                createdAt: new Date().toISOString(),
-            };
+            });
 
             setOrganizations((prev) => [newOrg, ...prev]);
 
@@ -77,8 +61,8 @@ export default function SuperAdminOrganizationsPage() {
             });
 
             setFormData({ orgCode: '', name: '' });
-        } catch {
-            toast.error('Failed to create organization');
+        } catch (err) {
+            toast.error(err.message || 'Failed to create organization');
         } finally {
             setIsLoading(false);
         }
@@ -87,66 +71,56 @@ export default function SuperAdminOrganizationsPage() {
     const openLoginModal = (org) => {
         setSelectedOrg(org);
         setLoginData({
-            loginId: org.adminLoginId || '',
-            password: org.adminPassword || ''
+            loginId: org.admin_login_id || '',
+            password: ''
         });
     };
 
-    const handleSaveCredentials = (e) => {
+    const handleSaveCredentials = async (e) => {
         e.preventDefault();
 
-        // 1. Update the local organization state so the UI updates
-        const updatedOrgs = organizations.map(o => {
-            if (o.id === selectedOrg.id) {
-                return { ...o, adminLoginId: loginData.loginId, adminPassword: loginData.password };
-            }
-            return o;
-        });
-        setOrganizations(updatedOrgs);
-
-        // 2. Save the dynamic user to Auth Context storage
         try {
-            const storedUsers = JSON.parse(localStorage.getItem('crystal_company_users') || '[]');
-            // remove existing if we're updating
-            const filteredUsers = storedUsers.filter(u => !(u.companyId === selectedOrg.id && u.role === 'admin'));
-            filteredUsers.push({
-                id: `company-${Date.now()}`,
+            await companiesApi.setCredentials(selectedOrg.id, {
                 email: loginData.loginId,
-                name: 'Admin User',
-                role: 'admin',
-                portalType: 'company',
                 password: loginData.password,
-                companyId: selectedOrg.id,
+                name: 'Admin User',
             });
-            localStorage.setItem('crystal_company_users', JSON.stringify(filteredUsers));
-        } catch (err) {
-            console.error("Failed to seed dynamic user", err);
-        }
 
-        toast.success(`Admin credentials saved for ${selectedOrg.name}`);
-        setSelectedOrg(null);
+            // Update local state
+            setOrganizations(prev => prev.map(o =>
+                o.id === selectedOrg.id
+                    ? { ...o, admin_login_id: loginData.loginId }
+                    : o
+            ));
+
+            toast.success(`Admin credentials saved for ${selectedOrg.name}`);
+            setSelectedOrg(null);
+        } catch (err) {
+            toast.error(err.message || 'Failed to save credentials');
+        }
     };
 
     const handleChange = (field, value) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
-    const handleDeleteOrg = (id) => {
+    const handleDeleteOrg = async (id) => {
         if (!window.confirm('Are you sure you want to delete this organization? All associated data will be lost.')) return;
-        setOrganizations(prev => prev.filter(org => org.id !== id));
-        // Also clean up associated users
         try {
-            const users = JSON.parse(localStorage.getItem('crystal_company_users') || '[]');
-            const filtered = users.filter(u => u.companyId !== id);
-            localStorage.setItem('crystal_company_users', JSON.stringify(filtered));
-        } catch {}
-        toast.success('Organization deleted successfully!');
+            await companiesApi.delete(id);
+            setOrganizations(prev => prev.filter(org => org.id !== id));
+            toast.success('Organization deleted successfully!');
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete organization');
+        }
     };
 
-    const filteredOrganizations = organizations.filter(org =>
-        org.orgCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        org.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredOrganizations = organizations.filter(org => {
+        const code = org.org_code || org.orgCode || '';
+        const name = org.name || '';
+        return code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 pb-12">

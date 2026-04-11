@@ -12,7 +12,7 @@ import {
 import { PlusCircle, Trash2, Save, FolderOpen, FilePlus, Clock, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
 
-const SHEETS_STORAGE_KEY = 'crystal_sheets';
+import { sheetsApi, jobsApi } from '@/lib/api/client';
 
 function createEmptySection(initialSerial = '') {
   return {
@@ -40,18 +40,7 @@ function getEmptyFormData() {
   };
 }
 
-function getSavedSheets() {
-  try {
-    const saved = localStorage.getItem(SHEETS_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
-}
 
-function saveSheetToStorage(sheets) {
-  localStorage.setItem(SHEETS_STORAGE_KEY, JSON.stringify(sheets));
-}
 
 export default function CreateOrderPage() {
   const { user } = useAuth();
@@ -61,29 +50,22 @@ export default function CreateOrderPage() {
   const [activeSheetId, setActiveSheetId] = useState(null);
   const [showSavedSheets, setShowSavedSheets] = useState(false);
 
-  // Data isolation: only load this company's sheets
+  // Data isolation: load this company's sheets and jobs
   useEffect(() => {
-    const allSheets = getSavedSheets();
-    setSavedSheets(allSheets.filter(s => s.companyId === user?.companyId));
+    const loadInitData = async () => {
+      try {
+        const [sheetsRes, jobsRes] = await Promise.all([
+          sheetsApi.list(),
+          jobsApi.list()
+        ]);
+        setSavedSheets(sheetsRes);
+        setJobsList(jobsRes);
+      } catch (err) {
+        toast.error('Failed to load init data');
+      }
+    };
+    loadInitData();
   }, [user?.companyId]);
-
-  // Load jobs from localStorage (same data as Manage Job No page)
-  const [jobsList, setJobsList] = useState([]);
-  const [filmSizesList, setFilmSizesList] = useState([]);
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('crystal_jobs');
-      if (saved) setJobsList(JSON.parse(saved));
-    } catch {
-      setJobsList([]);
-    }
-    try {
-      const saved = localStorage.getItem('crystal_film_sizes');
-      if (saved) setFilmSizesList(JSON.parse(saved));
-    } catch {
-      setFilmSizesList([]);
-    }
-  }, []);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -163,52 +145,39 @@ export default function CreateOrderPage() {
 
   // ===== Save / Load / New Sheet Logic =====
 
-  const handleSaveSheet = () => {
+  const handleSaveSheet = async () => {
     if (!formData.date || !formData.jobNo) {
       toast.error('Please fill in both Date and Job No. before saving.');
       return;
     }
 
-    const sheetData = {
-      id: activeSheetId || `sheet-${Date.now()}`,
+    const payload = {
       formData,
       sections,
-      companyId: user?.companyId,
-      companyName: user?.companyName,
-      savedAt: new Date().toISOString(),
     };
 
-    // Merge into full global storage (preserving other companies' sheets)
-    const allSheets = getSavedSheets();
-    let mySheets = allSheets.filter(s => s.companyId === user?.companyId);
-    const otherSheets = allSheets.filter(s => s.companyId !== user?.companyId);
-
-    if (activeSheetId) {
-      mySheets = mySheets.map((s) => (s.id === activeSheetId ? sheetData : s));
-    } else {
-      const duplicate = mySheets.find(
-        (s) => s.formData.date === formData.date && s.formData.jobNo === formData.jobNo
-      );
-      if (duplicate) {
-        sheetData.id = duplicate.id;
-        mySheets = mySheets.map((s) => (s.id === duplicate.id ? sheetData : s));
+    try {
+      if (activeSheetId) {
+        const res = await sheetsApi.update(activeSheetId, payload);
+        toast.success('Sheet updated successfully!');
+        setSavedSheets(prev => prev.map(s => s.id === activeSheetId ? res : s));
       } else {
-        mySheets = [sheetData, ...mySheets];
+        const res = await sheetsApi.create(payload);
+        toast.success('Sheet created successfully!');
+        setSavedSheets(prev => [res, ...prev]);
+        setActiveSheetId(res.id);
       }
+    } catch (err) {
+      toast.error(err.message || 'Failed to save sheet');
     }
-
-    saveSheetToStorage([...mySheets, ...otherSheets]);
-    setSavedSheets(mySheets);
-    setActiveSheetId(sheetData.id);
-    toast.success('Sheet saved successfully!');
   };
 
   const handleLoadSheet = (sheet) => {
-    setFormData(sheet.formData);
-    setSections(sheet.sections);
+    setFormData(sheet.form_data || sheet.formData || getEmptyFormData());
+    setSections(sheet.sections || [createEmptySection('1')]);
     setActiveSheetId(sheet.id);
     setShowSavedSheets(false);
-    toast.success(`Loaded sheet: ${sheet.formData.jobNo} — ${sheet.formData.date}`);
+    toast.success(`Loaded sheet: ${(sheet.form_data || sheet.formData).jobNo}`);
   };
 
   const handleNewSheet = () => {
@@ -217,17 +186,19 @@ export default function CreateOrderPage() {
     setActiveSheetId(null);
   };
 
-  const handleDeleteSheet = (e, sheetId) => {
+  const handleDeleteSheet = async (e, sheetId) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this sheet?')) return;
-    const allSheets = getSavedSheets();
-    const updatedAll = allSheets.filter((s) => s.id !== sheetId);
-    saveSheetToStorage(updatedAll);
-    setSavedSheets(updatedAll.filter(s => s.companyId === user?.companyId));
-    if (activeSheetId === sheetId) {
-      setActiveSheetId(null);
+    try {
+      await sheetsApi.delete(sheetId);
+      setSavedSheets(prev => prev.filter((s) => s.id !== sheetId));
+      if (activeSheetId === sheetId) {
+        setActiveSheetId(null);
+      }
+      toast.success('Sheet deleted!');
+    } catch (err) {
+      toast.error('Failed to delete sheet');
     }
-    toast.success('Sheet deleted!');
   };
 
   const formatDisplayDate = (dateStr) => {
@@ -309,17 +280,17 @@ export default function CreateOrderPage() {
                       <Briefcase className="h-4 w-4 text-blue-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800 text-sm">{sheet.formData.jobNo}</p>
+                      <p className="font-medium text-slate-800 text-sm">{(sheet.form_data || sheet.formData).jobNo}</p>
                       <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>{formatDisplayDate(sheet.formData.date)}</span>
-                        {sheet.formData.rsNo && <span>• RS: {sheet.formData.rsNo}</span>}
+                        <span>{formatDisplayDate((sheet.form_data || sheet.formData).date)}</span>
+                        {(sheet.form_data || sheet.formData).rsNo && <span>• RS: {(sheet.form_data || sheet.formData).rsNo}</span>}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-400 flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {formatDisplayDate(sheet.savedAt)}
+                      {formatDisplayDate(sheet.created_at || sheet.savedAt)}
                     </span>
                     <Button
                       type="button"
@@ -373,8 +344,8 @@ export default function CreateOrderPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {jobsList.map((job) => (
-                      <SelectItem key={job.id} value={job.jobNo}>
-                        {job.jobNo} — {job.companyName}
+                      <SelectItem key={job.id} value={job.job_no || job.jobNo}>
+                        {job.job_no || job.jobNo}
                       </SelectItem>
                     ))}
                   </SelectContent>

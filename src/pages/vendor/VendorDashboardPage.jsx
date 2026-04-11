@@ -5,66 +5,67 @@ import { Package, TrendingUp, Clock, AlertCircle, Film, Trash2, PlusCircle } fro
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-const ASSIGNED_KEY = 'crystal_assigned_sheets';
-
-function getMyAssignments(vendorId) {
-    try {
-        const saved = localStorage.getItem(ASSIGNED_KEY);
-        const all = saved ? JSON.parse(saved) : [];
-        // Exclude reassigned child assignments to prevent duplicate counting
-        return all.filter((a) => a.vendorNo === vendorId && !a.reassignedFrom);
-    } catch {
-        return [];
-    }
-}
+import { dashboardApi, filmSizesApi } from '@/lib/api/client';
+import { toast } from 'sonner';
 
 export default function VendorDashboardPage() {
     const { user } = useAuth();
-    const [myOrders, setMyOrders] = useState([]);
+    const [statsData, setStatsData] = useState({
+        totalOrders: 0,
+        pendingOrders: 0,
+        inProgress: 0,
+        completedOrders: 0,
+        recentOrders: []
+    });
 
     const [filmSizes, setFilmSizes] = useState([]);
     const [newFilmSize, setNewFilmSize] = useState('');
 
     useEffect(() => {
         if (!user) return;
-        const load = () => {
-            setMyOrders(getMyAssignments(user.vendorId));
+        const load = async () => {
             try {
-                const savedSizes = localStorage.getItem(`crystal_film_sizes_${user.vendorId}`);
-                if (savedSizes) setFilmSizes(JSON.parse(savedSizes));
-            } catch {}
+                const [dashRes, sizesRes] = await Promise.all([
+                    dashboardApi.vendor(),
+                    filmSizesApi.list()
+                ]);
+                setStatsData(dashRes);
+                setFilmSizes(sizesRes); // Assuming it returns an array of objects like { id, size }
+            } catch (err) {
+                console.error('Failed to load dashboard', err);
+            }
         };
         load();
         window.addEventListener('focus', load);
         return () => window.removeEventListener('focus', load);
     }, [user]);
 
-    const handleAddFilmSize = (e) => {
+    const handleAddFilmSize = async (e) => {
         e.preventDefault();
         const trimmed = newFilmSize.trim();
         if (!trimmed) return;
-        if (filmSizes.some(f => f.toLowerCase() === trimmed.toLowerCase())) return;
-        const updated = [...filmSizes, trimmed];
-        setFilmSizes(updated);
-        localStorage.setItem(`crystal_film_sizes_${user.vendorId}`, JSON.stringify(updated));
-        setNewFilmSize('');
+        try {
+            const res = await filmSizesApi.create({ size: trimmed });
+            setFilmSizes([...filmSizes, res]);
+            setNewFilmSize('');
+        } catch (err) {
+            toast.error(err.message || 'Failed to add film size');
+        }
     };
 
-    const handleRemoveFilmSize = (size) => {
-        const updated = filmSizes.filter(f => f !== size);
-        setFilmSizes(updated);
-        localStorage.setItem(`crystal_film_sizes_${user.vendorId}`, JSON.stringify(updated));
+    const handleRemoveFilmSize = async (sizeObj) => {
+        try {
+            await filmSizesApi.delete(sizeObj.id);
+            setFilmSizes(filmSizes.filter(f => f.id !== sizeObj.id));
+        } catch (err) {
+            toast.error('Failed to delete film size');
+        }
     };
-
-    const pendingCount = myOrders.filter((a) => a.status === 'pending').length;
-    const acceptedCount = myOrders.filter((a) => a.status === 'accepted').length;
-    const submittedCount = myOrders.filter((a) => a.submitted).length;
-    const totalCount = myOrders.length;
 
     const stats = [
         {
             title: 'Total Assigned',
-            value: totalCount,
+            value: statsData.totalOrders,
             description: 'All orders assigned to you',
             icon: Package,
             color: 'text-blue-600',
@@ -72,7 +73,7 @@ export default function VendorDashboardPage() {
         },
         {
             title: 'Submitted',
-            value: submittedCount,
+            value: statsData.completedOrders,
             description: 'Sheets sent back to company',
             icon: TrendingUp,
             color: 'text-emerald-600',
@@ -80,7 +81,7 @@ export default function VendorDashboardPage() {
         },
         {
             title: 'Accepted',
-            value: acceptedCount,
+            value: statsData.inProgress,
             description: 'In progress orders',
             icon: Clock,
             color: 'text-purple-600',
@@ -88,7 +89,7 @@ export default function VendorDashboardPage() {
         },
         {
             title: 'Pending Action',
-            value: pendingCount,
+            value: statsData.pendingOrders,
             description: 'Awaiting your response',
             icon: AlertCircle,
             color: 'text-amber-600',
@@ -164,17 +165,17 @@ export default function VendorDashboardPage() {
                                     No film sizes added yet. Add one above.
                                 </div>
                             ) : (
-                                filmSizes.map((size) => (
-                                    <div key={size} className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 transition-colors">
+                                filmSizes.map((sizeObj) => (
+                                    <div key={sizeObj.id} className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 transition-colors">
                                         <div className="flex items-center gap-2">
                                             <Film className="h-4 w-4 text-slate-400" />
-                                            <span className="font-medium text-slate-700">{size}</span>
+                                            <span className="font-medium text-slate-700">{sizeObj.size}</span>
                                         </div>
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="icon"
-                                            onClick={() => handleRemoveFilmSize(size)}
+                                            onClick={() => handleRemoveFilmSize(sizeObj)}
                                             className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -193,21 +194,21 @@ export default function VendorDashboardPage() {
                         <CardDescription>Your most recent job assignments from companies</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {myOrders.length === 0 ? (
+                        {statsData.recentOrders.length === 0 ? (
                             <div className="py-12 text-center text-slate-500 bg-slate-50 rounded border border-dashed">
                                 <Package className="h-10 w-10 mx-auto text-slate-300 mb-2" />
                                 <p>No orders assigned to you yet.</p>
                             </div>
                         ) : (
                             <div className="space-y-2">
-                                {myOrders.slice(0, 5).map((order) => (
+                                {statsData.recentOrders.map((order) => (
                                     <div key={order.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
                                         <div>
                                             <p className="font-medium text-slate-800 text-sm">
-                                                {order.sheet?.formData?.jobNo || '—'}
+                                                {order.job_no || '—'}
                                             </p>
                                             <p className="text-xs text-slate-500">
-                                                RS: {order.sheet?.formData?.rsNo || '—'} • {order.companyName || 'Unknown'}
+                                                RS: {order.rs_no || '—'} • {order.company_name || 'Unknown'}
                                             </p>
                                         </div>
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

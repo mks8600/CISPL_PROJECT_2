@@ -13,17 +13,7 @@ import {
 import { Activity, ChevronDown, ChevronUp, CheckCircle2, CircleDot, RotateCcw, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
-const ASSIGNED_KEY = 'crystal_assigned_sheets';
-
-function getAssignments() {
-    try {
-        const saved = localStorage.getItem(ASSIGNED_KEY);
-        const all = saved ? JSON.parse(saved) : [];
-        return all;
-    } catch {
-        return [];
-    }
-}
+import { assignmentsApi } from '@/lib/api/client';
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -47,102 +37,94 @@ export default function CompanyOrderStatusPage() {
         return () => window.removeEventListener('focus', onFocus);
     }, [user?.companyId]);
 
-    const loadData = () => {
-        const all = getAssignments().filter(a => a.companyId === user?.companyId);
+    const loadData = async () => {
+        try {
+            const all = await assignmentsApi.list();
 
-        // Auto-fix legacy data: if a sheet is submitted, any 'pending' sections should be 'complete'
-        let dataChanged = false;
-        const autoFixedAll = all.map(a => {
-            if (a.submitted && a.status === 'accepted') {
-                const sectionStatuses = a.sectionStatuses ? [...a.sectionStatuses] : (a.sheet.sections || []).map(() => 'pending');
-                let changed = false;
-                const newStatuses = sectionStatuses.map(s => {
-                    if (s === 'pending') {
-                        changed = true;
-                        return 'complete';
-                    }
-                    return s;
-                });
-                if (changed) {
-                    dataChanged = true;
-                    return { ...a, sectionStatuses: newStatuses };
-                }
-            }
-            return a;
-        });
-
-        if (dataChanged) {
-            localStorage.setItem(ASSIGNED_KEY, JSON.stringify(autoFixedAll));
+            const readyForReview = all.filter((a) => {
+                if (a.status !== 'accepted' || !a.submitted) return false;
+                const sheetData = a.sheet_data || a.sheet || {};
+                const sections = sheetData.sections || [];
+                if (sections.length === 0) return false;
+                const sectionStatuses = a.section_statuses || a.sectionStatuses || sections.map(() => 'pending');
+                const reviewStatuses = a.review_statuses || a.reviewStatuses || sections.map(() => null);
+                // Check non-reassigned sections only
+                const activeIndices = sectionStatuses.reduce((acc, s, i) => {
+                    if (s !== 'reassigned') acc.push(i);
+                    return acc;
+                }, []);
+                if (activeIndices.length === 0) return false;
+                // Exclude if all active sections are reviewed as OK
+                const allActiveOk = activeIndices.every((i) => reviewStatuses[i] === 'ok');
+                if (allActiveOk) return false;
+                // Must have at least one complete section to review
+                const hasCompleteSectionToReview = activeIndices.some((i) => sectionStatuses[i] === 'complete');
+                if (!hasCompleteSectionToReview) return false;
+                return true;
+            });
+            setAssignments(readyForReview);
+        } catch (err) {
+            toast.error('Failed to load assignments');
         }
-
-        const validAll = dataChanged ? autoFixedAll : all;
-
-        const readyForReview = validAll.filter((a) => {
-            if (a.status !== 'accepted' || !a.submitted) return false;
-            const sections = a.sheet.sections || [];
-            if (sections.length === 0) return false;
-            const sectionStatuses = a.sectionStatuses || sections.map(() => 'pending');
-            const reviewStatuses = a.reviewStatuses || sections.map(() => null);
-            // Check non-reassigned sections only
-            const activeIndices = sectionStatuses.reduce((acc, s, i) => {
-                if (s !== 'reassigned') acc.push(i);
-                return acc;
-            }, []);
-            if (activeIndices.length === 0) return false;
-            // Exclude if all active sections are reviewed as OK
-            const allActiveOk = activeIndices.every((i) => reviewStatuses[i] === 'ok');
-            if (allActiveOk) return false;
-            // Must have at least one complete section to review (pending ones go to Pending Work)
-            const hasCompleteSectionToReview = activeIndices.some((i) => sectionStatuses[i] === 'complete');
-            if (!hasCompleteSectionToReview) return false;
-            return true;
-        });
-        setAssignments(readyForReview);
     };
 
-    const handleCompanyObservationValue = (assignmentId, sIdx, rIdx, obsIdx, value) => {
-        const all = getAssignments();
-        const updated = all.map((a) => {
-            if (a.id === assignmentId) {
-                const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
-                if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
-                if (!newVendorData[sIdx][rIdx]) newVendorData[sIdx][rIdx] = { observations: [] };
-                if (!newVendorData[sIdx][rIdx].observations[obsIdx]) {
-                    newVendorData[sIdx][rIdx].observations[obsIdx] = { label: '', value: '' };
-                }
-                newVendorData[sIdx][rIdx].observations[obsIdx].companyValue = value;
-                return { ...a, vendorData: newVendorData };
-            }
-            return a;
-        });
-        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-        setAssignments(prev => prev.map(a => a.id === assignmentId ? updated.find(u => u.id === assignmentId) : a));
+    const handleCompanyObservationValue = async (assignmentId, sIdx, rIdx, obsIdx, value) => {
+        const assignment = assignments.find(a => a.id === assignmentId);
+        if (!assignment) return;
+
+        const newVendorData = JSON.parse(JSON.stringify(assignment.vendor_data || assignment.vendorData || {}));
+        if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
+        if (!newVendorData[sIdx][rIdx]) newVendorData[sIdx][rIdx] = { observations: [] };
+        if (!newVendorData[sIdx][rIdx].observations[obsIdx]) {
+            newVendorData[sIdx][rIdx].observations[obsIdx] = { label: '', value: '' };
+        }
+        newVendorData[sIdx][rIdx].observations[obsIdx].companyValue = value;
+
+        setAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, vendor_data: newVendorData, vendorData: newVendorData } : a));
+
+        try {
+            await assignmentsApi.review(assignmentId, {
+                vendorData: newVendorData,
+                reviewStatuses: assignment.review_statuses || assignment.reviewStatuses,
+                reviewDescriptions: assignment.review_descriptions || assignment.reviewDescriptions,
+            });
+        } catch (err) {
+            toast.error('Failed to save observation value');
+        }
     };
 
-    const handleReview = (assignmentId, sectionIndex, reviewStatus) => {
+    const handleReview = async (assignmentId, sectionIndex, reviewStatus) => {
         const descKey = `${assignmentId}-${sectionIndex}`;
         const description = descriptions[descKey] || '';
 
-        const all = getAssignments();
-        const updated = all.map((a) => {
-            if (a.id === assignmentId) {
-                const reviewStatuses = a.reviewStatuses ? [...a.reviewStatuses] : (a.sheet.sections || []).map(() => null);
-                const reviewDescriptions = a.reviewDescriptions ? [...a.reviewDescriptions] : (a.sheet.sections || []).map(() => '');
-                reviewStatuses[sectionIndex] = reviewStatus;
-                reviewDescriptions[sectionIndex] = reviewStatus === 'ok' ? '' : description.trim();
-                return { ...a, reviewStatuses, reviewDescriptions };
-            }
-            return a;
-        });
-        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-        loadData();
-        setDescriptions((prev) => ({ ...prev, [descKey]: '' }));
-        toast.success(`Section marked as ${reviewStatus.charAt(0).toUpperCase() + reviewStatus.slice(1)}!`);
+        const assignment = assignments.find(a => a.id === assignmentId);
+        if (!assignment) return;
+
+        const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses ? [...(assignment.review_statuses || assignment.reviewStatuses)] : (sheetData.sections || []).map(() => null);
+        const reviewDescriptions = assignment.review_descriptions || assignment.reviewDescriptions ? [...(assignment.review_descriptions || assignment.reviewDescriptions)] : (sheetData.sections || []).map(() => '');
+        
+        reviewStatuses[sectionIndex] = reviewStatus;
+        reviewDescriptions[sectionIndex] = reviewStatus === 'ok' ? '' : description.trim();
+
+        try {
+            await assignmentsApi.review(assignmentId, {
+                vendorData: assignment.vendor_data || assignment.vendorData,
+                reviewStatuses,
+                reviewDescriptions
+            });
+            loadData();
+            setDescriptions((prev) => ({ ...prev, [descKey]: '' }));
+            toast.success(`Section marked as ${reviewStatus.charAt(0).toUpperCase() + reviewStatus.slice(1)}!`);
+        } catch (err) {
+            toast.error(err.message || 'Failed to save review');
+        }
     };
 
-    const handleMarkAsCompleted = (assignment) => {
-        const sections = assignment.sheet.sections || [];
-        const sectionStatuses = assignment.sectionStatuses || sections.map(() => 'pending');
+    const handleMarkAsCompleted = async (assignment) => {
+        const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const sections = sheetData.sections || [];
+        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || sections.map(() => 'pending');
 
         // First, validate that all vendor observations have a company value selected
         let hasEmpty = false;
@@ -150,7 +132,8 @@ export default function CompanyOrderStatusPage() {
             if (sectionStatuses[sIdx] === 'reassigned') continue;
             const section = sections[sIdx];
             for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
-                const vData = (assignment.vendorData && assignment.vendorData[sIdx] && assignment.vendorData[sIdx][rIdx]) || {};
+                const vDataArr = assignment.vendor_data || assignment.vendorData;
+                const vData = (vDataArr && vDataArr[sIdx] && vDataArr[sIdx][rIdx]) || {};
                 const obsArray = vData.observations || [];
                 for (const obs of obsArray) {
                     if (!obs.companyValue) {
@@ -168,47 +151,48 @@ export default function CompanyOrderStatusPage() {
             return;
         }
 
-        const all = getAssignments();
-        const updated = all.map((a) => {
-            if (a.id === assignment.id) {
-                const newReviewStatuses = a.reviewStatuses ? [...a.reviewStatuses] : sections.map(() => null);
-                const newReviewDescriptions = a.reviewDescriptions ? [...a.reviewDescriptions] : sections.map(() => '');
+        const newReviewStatuses = assignment.review_statuses || assignment.reviewStatuses ? [...(assignment.review_statuses || assignment.reviewStatuses)] : sections.map(() => null);
+        const newReviewDescriptions = assignment.review_descriptions || assignment.reviewDescriptions ? [...(assignment.review_descriptions || assignment.reviewDescriptions)] : sections.map(() => '');
 
-                for (let sIdx = 0; sIdx < sections.length; sIdx++) {
-                    if (sectionStatuses[sIdx] === 'reassigned') continue;
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+            if (sectionStatuses[sIdx] === 'reassigned') continue;
 
-                    const section = sections[sIdx];
-                    let sectionOk = true;
+            const section = sections[sIdx];
+            let sectionOk = true;
 
-                    for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
-                        const vData = (a.vendorData && a.vendorData[sIdx] && a.vendorData[sIdx][rIdx]) || {};
-                        const obsArray = vData.observations || [];
-                        for (const obs of obsArray) {
-                            if (obs.companyValue !== 'OK') {
-                                sectionOk = false;
-                                break;
-                            }
-                        }
-                        if (!sectionOk) break;
-                    }
-
-                    if (sectionOk) {
-                        newReviewStatuses[sIdx] = 'ok';
-                        newReviewDescriptions[sIdx] = '';
-                    } else {
-                        // Mark as repair to send this section back to Pending Works
-                        newReviewStatuses[sIdx] = 'repair';
-                        newReviewDescriptions[sIdx] = 'Company observation indicated non-OK values (e.g., Repair, R/S, Missing).';
+            for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
+                const vDataArr = assignment.vendor_data || assignment.vendorData;
+                const vData = (vDataArr && vDataArr[sIdx] && vDataArr[sIdx][rIdx]) || {};
+                const obsArray = vData.observations || [];
+                for (const obs of obsArray) {
+                    if (obs.companyValue !== 'OK') {
+                        sectionOk = false;
+                        break;
                     }
                 }
-                return { ...a, reviewStatuses: newReviewStatuses, reviewDescriptions: newReviewDescriptions };
+                if (!sectionOk) break;
             }
-            return a;
-        });
 
-        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-        loadData();
-        toast.success("Review processing complete!");
+            if (sectionOk) {
+                newReviewStatuses[sIdx] = 'ok';
+                newReviewDescriptions[sIdx] = '';
+            } else {
+                newReviewStatuses[sIdx] = 'repair';
+                newReviewDescriptions[sIdx] = 'Company observation indicated non-OK values (e.g., Repair, R/S, Missing).';
+            }
+        }
+
+        try {
+            await assignmentsApi.review(assignment.id, {
+                vendorData: assignment.vendor_data || assignment.vendorData,
+                reviewStatuses: newReviewStatuses,
+                reviewDescriptions: newReviewDescriptions
+            });
+            loadData();
+            toast.success("Review processing complete!");
+        } catch (err) {
+            toast.error(err.message || 'Failed to complete review');
+        }
     };
 
     const getReviewBadge = (status) => {
@@ -259,12 +243,13 @@ export default function CompanyOrderStatusPage() {
             ) : (
                 <div className="space-y-4">
                     {assignments.map((assignment) => {
-                        const fd = assignment.sheet.formData;
+                        const sheetData = assignment.sheet_data || assignment.sheet || {};
+                        const fd = sheetData.form_data || sheetData.formData || {};
                         const isExpanded = expandedId === assignment.id;
-                        const sections = assignment.sheet.sections || [];
-                        const sectionStatuses = assignment.sectionStatuses || sections.map(() => 'pending');
-                        const reviewStatuses = assignment.reviewStatuses || sections.map(() => null);
-                        const reviewDescriptions = assignment.reviewDescriptions || sections.map(() => '');
+                        const sections = sheetData.sections || [];
+                        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || sections.map(() => 'pending');
+                        const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || sections.map(() => null);
+                        const reviewDescriptions = assignment.review_descriptions || assignment.reviewDescriptions || sections.map(() => '');
                         // Only count complete sections (pending ones go to Pending Work page)
                         const completeSectionCount = sectionStatuses.filter((s) => s === 'complete').length;
                         const reviewedCount = sectionStatuses.reduce((count, s, i) => {
@@ -289,7 +274,7 @@ export default function CompanyOrderStatusPage() {
                                                 <span className="font-normal text-slate-500 ml-2">— {formatDate(fd.date)}</span>
                                             </p>
                                             <p className="text-sm text-slate-500">
-                                                Vendor: <span className="font-medium text-slate-700">{assignment.vendorName}</span> ({assignment.vendorNo})
+                                                Vendor: <span className="font-medium text-slate-700">{assignment.vendor_name || assignment.vendorName}</span> ({assignment.vendor_no || assignment.vendorNo})
                                                 {fd.rsNo && <span className="ml-2">• RS: {fd.rsNo}</span>}
                                             </p>
                                         </div>
@@ -360,8 +345,9 @@ export default function CompanyOrderStatusPage() {
                                                                 </thead>
                                                                 <tbody>
                                                                     {section.rows.map((row, rIdx) => {
-                                                                        const vData = (assignment.vendorData && assignment.vendorData[sIdx] && assignment.vendorData[sIdx][rIdx]) || { spotNo: '', filmSize: '', observations: [], remark: '' };
-                                                                        const obsCount = Math.max(1, vData.observations.length);
+                                                                        const vDataArr = assignment.vendor_data || assignment.vendorData;
+                                                                        const vData = (vDataArr && vDataArr[sIdx] && vDataArr[sIdx][rIdx]) || { spotNo: '', filmSize: '', observations: [], remark: '' };
+                                                                        const obsCount = Math.max(1, (vData.observations || []).length);
                                                                         
                                                                         return (
                                                                             <React.Fragment key={rIdx}>
@@ -376,7 +362,7 @@ export default function CompanyOrderStatusPage() {
                                                                                         {vData.filmSize || '—'}
                                                                                     </td>
                                                                                     
-                                                                                    {vData.observations.length > 0 ? (
+                                                                                    {(vData.observations && vData.observations.length > 0) ? (
                                                                                         <>
                                                                                             <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{vData.observations[0].label}</td>
                                                                                             <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">
@@ -419,7 +405,7 @@ export default function CompanyOrderStatusPage() {
                                                                                     )}
                                                                                 </tr>
                                                                                 
-                                                                                {vData.observations.slice(1).map((obs, offsetIdx) => (
+                                                                                {(vData.observations || []).slice(1).map((obs, offsetIdx) => (
                                                                                     <tr key={offsetIdx + 1} className="border-b border-slate-200 last:border-b-0">
                                                                                         <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{obs.label}</td>
                                                                                         <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">

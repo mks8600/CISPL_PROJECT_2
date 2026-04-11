@@ -12,17 +12,11 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { globalVendorsApi } from '@/lib/api/client';
 
 export default function SuperAdminVendorsPage() {
     const [isLoading, setIsLoading] = useState(false);
-    const [vendors, setVendors] = useState(() => {
-        try {
-            const saved = localStorage.getItem('crystal_vendors');
-            return saved ? JSON.parse(saved) : [];
-        } catch {
-            return [];
-        }
-    });
+    const [vendors, setVendors] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
 
     const [selectedVendor, setSelectedVendor] = useState(null);
@@ -32,8 +26,17 @@ export default function SuperAdminVendorsPage() {
     });
 
     useEffect(() => {
-        localStorage.setItem('crystal_vendors', JSON.stringify(vendors));
-    }, [vendors]);
+        loadVendors();
+    }, []);
+
+    const loadVendors = async () => {
+        try {
+            const data = await globalVendorsApi.list();
+            setVendors(data);
+        } catch {
+            toast.error('Failed to load vendors');
+        }
+    };
 
     const [formData, setFormData] = useState({
         vendorNo: '',
@@ -45,21 +48,16 @@ export default function SuperAdminVendorsPage() {
         setIsLoading(true);
 
         try {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            const newVendor = {
-                id: Date.now().toString(),
+            const newVendor = await globalVendorsApi.create({
                 vendorNo: formData.vendorNo,
                 vendorName: formData.vendorName,
-                createdAt: new Date().toISOString(),
-            };
+            });
 
             setVendors((prev) => [newVendor, ...prev]);
             toast.success('Vendor added to global marketplace successfully!');
-
             setFormData({ vendorNo: '', vendorName: '' });
-        } catch {
-            toast.error('Failed to create vendor');
+        } catch (err) {
+            toast.error(err.message || 'Failed to create vendor');
         } finally {
             setIsLoading(false);
         }
@@ -69,39 +67,53 @@ export default function SuperAdminVendorsPage() {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
-    const filteredVendors = vendors.filter(vendor =>
-        vendor.vendorNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vendor.vendorName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredVendors = vendors.filter(vendor => {
+        const vno = vendor.vendor_no || vendor.vendorNo || '';
+        const vname = vendor.vendor_name || vendor.vendorName || '';
+        return vno.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            vname.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
     const openLoginModal = (vendor) => {
         setSelectedVendor(vendor);
         setLoginData({
-            loginId: vendor.loginId || '',
-            password: vendor.password || ''
+            loginId: vendor.login_id || vendor.loginId || '',
+            password: ''
         });
     };
 
-    const handleSaveCredentials = (e) => {
+    const handleSaveCredentials = async (e) => {
         e.preventDefault();
 
-        const updatedVendors = vendors.map(v => {
-            if (v.id === selectedVendor.id) {
-                return { ...v, loginId: loginData.loginId, password: loginData.password };
-            }
-            return v;
-        });
+        try {
+            await globalVendorsApi.setCredentials(selectedVendor.id, {
+                loginId: loginData.loginId,
+                password: loginData.password,
+            });
 
-        setVendors(updatedVendors);
-        toast.success(`Credentials saved for ${selectedVendor.vendorName}`);
-        setSelectedVendor(null);
+            setVendors(prev => prev.map(v =>
+                v.id === selectedVendor.id
+                    ? { ...v, login_id: loginData.loginId }
+                    : v
+            ));
+
+            toast.success(`Credentials saved for ${selectedVendor.vendor_name || selectedVendor.vendorName}`);
+            setSelectedVendor(null);
+        } catch (err) {
+            toast.error(err.message || 'Failed to save credentials');
+        }
     };
 
-    const handleDeleteVendor = (e, id) => {
+    const handleDeleteVendor = async (e, id) => {
         e.stopPropagation();
         if (!window.confirm('Are you sure you want to revoke this vendor? They will lose marketplace access.')) return;
-        setVendors(prev => prev.filter(vendor => vendor.id !== id));
-        toast.success('Vendor revoked from marketplace successfully!');
+        try {
+            await globalVendorsApi.delete(id);
+            setVendors(prev => prev.filter(vendor => vendor.id !== id));
+            toast.success('Vendor revoked from marketplace successfully!');
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete vendor');
+        }
     };
 
     return (
@@ -206,13 +218,13 @@ export default function SuperAdminVendorsPage() {
                                                     <Users className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-slate-900 tracking-tight">{vendor.vendorName}</p>
-                                                    <p className="text-xs text-slate-500 mt-0.5 font-mono">Tag: {vendor.vendorNo}</p>
+                                                    <p className="font-bold text-slate-900 tracking-tight">{vendor.vendor_name || vendor.vendorName}</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5 font-mono">Tag: {vendor.vendor_no || vendor.vendorNo}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right text-sm text-slate-500 hidden sm:block">
-                                                    {vendor.loginId ? (
+                                                    {(vendor.login_id || vendor.loginId) ? (
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                                             Login Provisioned
                                                         </span>

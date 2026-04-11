@@ -15,37 +15,43 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-
-const FILM_SIZES_KEY = 'crystal_film_sizes';
-const ASSIGNED_KEY = 'crystal_assigned_sheets';
-
-function getAssignedSheets(companyId) {
-    try {
-        const saved = localStorage.getItem(ASSIGNED_KEY);
-        const all = saved ? JSON.parse(saved) : [];
-        // Only count root assignments (not reassigned children) and filter by company
-        return all.filter((a) => !a.reassignedFrom && a.companyId === companyId);
-    } catch {
-        return [];
-    }
-}
+import { dashboardApi, assignmentsApi } from '@/lib/api/client';
 
 export default function CompanyDashboardPage() {
   const { user } = useAuth();
   const [sheets, setSheets] = useState([]);
+  const [stats, setStats] = useState({
+      totalAssignments: 0,
+      pendingOrders: 0,
+      inProgress: 0,
+      completedOrders: 0,
+      totalSheets: 0,
+  });
+
   useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const dashboardData = await dashboardApi.company();
+        setStats(dashboardData);
+
+        const assignments = await assignmentsApi.list();
+        setSheets(assignments);
+      } catch (err) {
+        toast.error('Failed to load dashboard data');
+      }
+    };
+
     if (user?.companyId) {
-      const load = () => setSheets(getAssignedSheets(user.companyId));
-      load();
-      window.addEventListener('focus', load);
-      return () => window.removeEventListener('focus', load);
+      loadDashboard();
+      window.addEventListener('focus', loadDashboard);
+      return () => window.removeEventListener('focus', loadDashboard);
     }
   }, [user?.companyId]);
 
-  const totalCount = sheets.length;
-  const pendingCount = sheets.filter((a) => a.status === 'pending').length;
-  const acceptedCount = sheets.filter((a) => a.status === 'accepted' && !a.submitted).length;
-  const submittedCount = sheets.filter((a) => a.submitted).length;
+  const totalCount = stats.totalAssignments;
+  const pendingCount = stats.pendingOrders;
+  const acceptedCount = stats.inProgress;
+  const submittedCount = stats.completedOrders;
 
   const statCards = [
     {

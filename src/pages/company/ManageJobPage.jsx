@@ -6,28 +6,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { jobsApi } from '@/lib/api/client';
 
 export default function ManageJobPage() {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
-    const [jobs, setJobs] = useState(() => {
-        try {
-            const saved = localStorage.getItem('crystal_jobs');
-            const allJobs = saved ? JSON.parse(saved) : [];
-            return allJobs.filter(j => j.companyId === user?.companyId);
-        } catch {
-            return [];
-        }
-    });
+    const [jobs, setJobs] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
-        // Only override the jobs specific to this company, preserve others
-        const saved = localStorage.getItem('crystal_jobs');
-        const allJobs = saved ? JSON.parse(saved) : [];
-        const otherJobs = allJobs.filter(j => j.companyId !== user?.companyId);
-        localStorage.setItem('crystal_jobs', JSON.stringify([...otherJobs, ...jobs]));
-    }, [jobs, user?.companyId]);
+        loadJobs();
+    }, []);
+
+    const loadJobs = async () => {
+        try {
+            const data = await jobsApi.list();
+            setJobs(data);
+        } catch {
+            toast.error('Failed to load jobs');
+        }
+    };
 
     const [formData, setFormData] = useState({
         jobNo: '',
@@ -39,23 +37,17 @@ export default function ManageJobPage() {
         setIsLoading(true);
 
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            const newJob = {
-                id: Date.now().toString(),
+            const newJob = await jobsApi.create({
                 jobNo: formData.jobNo,
-                companyName: formData.companyName,
-                companyId: user?.companyId,
-                createdAt: new Date().toISOString(),
-            };
+                description: formData.companyName, // mapping companyName input to description in our db
+            });
 
             setJobs((prev) => [newJob, ...prev]);
             toast.success('Job created successfully!');
 
             setFormData({ jobNo: '', companyName: '' });
-        } catch {
-            toast.error('Failed to create job');
+        } catch (err) {
+            toast.error(err.message || 'Failed to create job');
         } finally {
             setIsLoading(false);
         }
@@ -65,15 +57,22 @@ export default function ManageJobPage() {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
-    const handleDeleteJob = (id) => {
-        setJobs(prev => prev.filter(job => job.id !== id));
-        toast.success('Job deleted successfully!');
+    const handleDeleteJob = async (id) => {
+        try {
+            await jobsApi.delete(id);
+            setJobs(prev => prev.filter(job => job.id !== id));
+            toast.success('Job deleted successfully!');
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete job');
+        }
     };
 
-    const filteredJobs = jobs.filter(job =>
-        job.jobNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.companyName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredJobs = jobs.filter(job => {
+        const jobNo = job.job_no || job.jobNo || '';
+        const desc = job.description || job.companyName || '';
+        return jobNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            desc.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
     return (
         <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -108,10 +107,10 @@ export default function ManageJobPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="companyName">Company Name *</Label>
+                                    <Label htmlFor="companyName">Job Description / Company *</Label>
                                     <Input
                                         id="companyName"
-                                        placeholder="e.g., Acme Corp"
+                                        placeholder="e.g., Acme Corp Pipeline"
                                         value={formData.companyName}
                                         onChange={(e) => handleChange('companyName', e.target.value)}
                                         required
@@ -176,13 +175,13 @@ export default function ManageJobPage() {
                                                     <Briefcase className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-slate-900">{job.jobNo}</p>
-                                                    <p className="text-sm text-slate-500">{job.companyName}</p>
+                                                    <p className="font-semibold text-slate-900">{job.job_no || job.jobNo}</p>
+                                                    <p className="text-sm text-slate-500">{job.description || job.companyName}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right text-sm text-slate-500 hidden sm:block">
-                                                    {new Date(job.createdAt).toLocaleDateString()}
+                                                    {new Date(job.created_at || job.createdAt).toLocaleDateString()}
                                                 </div>
                                                 <Button
                                                     variant="ghost"

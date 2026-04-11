@@ -5,16 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Package, Check, X, ChevronDown, ChevronUp, Clock, RotateCcw, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
-const ASSIGNED_KEY = 'crystal_assigned_sheets';
-
-function getAssignments() {
-    try {
-        const saved = localStorage.getItem(ASSIGNED_KEY);
-        return saved ? JSON.parse(saved) : [];
-    } catch {
-        return [];
-    }
-}
+import { vendorOrdersApi } from '@/lib/api/client';
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -37,31 +28,29 @@ export default function VendorReassignedTasksPage() {
         return () => window.removeEventListener('focus', onFocus);
     }, [user]);
 
-    const loadOrders = () => {
-        const all = getAssignments();
-        // Filter by vendor — match vendorNo to user.vendorId, and MUST be reassigned
-        const mine = all.filter((a) => a.vendorNo === user?.vendorId && a.reassignedFrom);
-        setAssignments(mine);
+    const loadOrders = async () => {
+        try {
+            const all = await vendorOrdersApi.list();
+            // The backend returns only the orders assigned to the vendor, but we keep reassigned ones only
+            const mine = all.filter((a) => a.reassigned_from || a.reassignedFrom);
+            setAssignments(mine);
+        } catch (error) {
+            toast.error('Failed to load orders');
+        }
     };
 
-    const handleUpdateStatus = (assignmentId, newStatus) => {
-        const all = getAssignments();
-        const updated = all.map((a) => {
-            if (a.id === assignmentId) {
-                return { ...a, status: newStatus, respondedAt: new Date().toISOString() };
+    const handleUpdateStatus = async (assignmentId, newStatus) => {
+        try {
+            if (newStatus === 'accepted') {
+                await vendorOrdersApi.accept(assignmentId);
+                toast.success('Task accepted!');
+            } else {
+                await vendorOrdersApi.decline(assignmentId);
+                toast.info('Task declined.');
             }
-            return a;
-        });
-        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-
-        // Refresh local state
-        const mine = updated.filter((a) => a.vendorNo === user?.vendorId);
-        setAssignments(mine);
-
-        if (newStatus === 'accepted') {
-            toast.success('Order accepted!');
-        } else {
-            toast.info('Order declined.');
+            loadOrders();
+        } catch (error) {
+            toast.error('Failed to update status');
         }
     };
 
@@ -108,7 +97,8 @@ export default function VendorReassignedTasksPage() {
             ) : (
                 <div className="space-y-4">
                     {assignments.map((assignment) => {
-                        const fd = assignment.sheet.formData;
+                        const sheetData = assignment.sheet_data || assignment.sheet || {};
+                        const fd = sheetData.form_data || sheetData.formData || {};
                         const isExpanded = expandedId === assignment.id;
 
                         return (
@@ -133,7 +123,7 @@ export default function VendorReassignedTasksPage() {
                                                 <span className="font-normal text-slate-500 ml-2">— {formatDate(fd.date)}</span>
                                             </p>
                                             <p className="text-sm text-slate-500">
-                                                By: <span className="font-medium text-slate-700">{assignment.companyName || 'Unknown Company'}</span> • RS No: {fd.rsNo || '—'} • Assigned: {formatDate(assignment.assignedAt)}
+                                                By: <span className="font-medium text-slate-700">{assignment.company_name || assignment.companyName || 'Unknown Company'}</span> • RS No: {fd.rsNo || '—'} • Assigned: {formatDate(assignment.assigned_at || assignment.assignedAt || assignment.created_at)}
                                             </p>
                                         </div>
                                     </div>
@@ -173,9 +163,9 @@ export default function VendorReassignedTasksPage() {
                                         </div>
 
                                         {/* Detail Sections */}
-                                        {assignment.sheet.sections && assignment.sheet.sections.length > 0 && (() => {
-                                            const reviewStatuses = assignment.reviewStatuses || assignment.sheet.sections.map(() => null);
-                                            const reviewDescriptions = assignment.reviewDescriptions || assignment.sheet.sections.map(() => '');
+                                        {sheetData.sections && sheetData.sections.length > 0 && (() => {
+                                            const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || sheetData.sections.map(() => null);
+                                            const reviewDescriptions = assignment.review_descriptions || assignment.reviewDescriptions || sheetData.sections.map(() => '');
                                             const hasReviewIssues = reviewStatuses.some((r) => r === 'retake' || r === 'repair');
 
                                             return (
@@ -186,7 +176,7 @@ export default function VendorReassignedTasksPage() {
                                                         </div>
                                                     )}
                                                     <div className="px-4 pb-4 space-y-3">
-                                                        {assignment.sheet.sections.map((section, sIdx) => {
+                                                        {sheetData.sections.map((section, sIdx) => {
                                                             const rStatus = reviewStatuses[sIdx];
                                                             const rDesc = reviewDescriptions[sIdx] || '';
                                                             return (
@@ -274,9 +264,9 @@ export default function VendorReassignedTasksPage() {
                                         )}
 
                                         {/* Already responded */}
-                                        {assignment.status !== 'pending' && assignment.respondedAt && (
+                                        {assignment.status !== 'pending' && (assignment.responded_at || assignment.respondedAt) && (
                                             <div className="border-t px-4 py-3 bg-slate-50 text-sm text-slate-500">
-                                                {assignment.status === 'accepted' ? 'Accepted' : 'Declined'} on {formatDate(assignment.respondedAt)}
+                                                {assignment.status === 'accepted' ? 'Accepted' : 'Declined'} on {formatDate(assignment.responded_at || assignment.respondedAt)}
                                             </div>
                                         )}
                                     </div>

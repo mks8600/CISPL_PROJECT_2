@@ -12,15 +12,16 @@ import {
 import { TrendingUp, ChevronDown, ChevronUp, Clock, CheckCircle2, CircleDot, SendHorizonal, RotateCcw, Wrench, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
-const ASSIGNED_KEY = 'crystal_assigned_sheets';
+import { vendorOrdersApi, filmSizesApi } from '@/lib/api/client';
 
-function getAssignments() {
-    try {
-        const saved = localStorage.getItem(ASSIGNED_KEY);
-        return saved ? JSON.parse(saved) : [];
-    } catch {
-        return [];
-    }
+const debounceTimers = {};
+function debouncedSave(assignmentId, payload) {
+    if (debounceTimers[assignmentId]) clearTimeout(debounceTimers[assignmentId]);
+    debounceTimers[assignmentId] = setTimeout(() => {
+        vendorOrdersApi.saveData(assignmentId, payload).catch(err => {
+            console.error('Failed to sync vendor data', err);
+        });
+    }, 1000);
 }
 
 function formatDate(dateStr) {
@@ -38,17 +39,27 @@ export default function VendorOrderProgressPage() {
     const [expandedId, setExpandedId] = useState(null);
     const [filmSizes, setFilmSizes] = useState([]);
 
-    const loadOrders = () => {
-        const all = getAssignments();
-        const accepted = all.filter(
-            (a) => a.vendorNo === user?.vendorId && a.status === 'accepted'
-        );
-        setAcceptedOrders(accepted);
-
+    const loadOrders = async () => {
         try {
-            const savedSizes = localStorage.getItem(`crystal_film_sizes_${user?.vendorId}`);
-            if (savedSizes) setFilmSizes(JSON.parse(savedSizes));
-        } catch { }
+            const [ordersRes, sizesRes] = await Promise.all([
+                vendorOrdersApi.list(),
+                filmSizesApi.list()
+            ]);
+            const accepted = ordersRes.filter((a) => a.status === 'accepted');
+            
+            // Map snake_case to camelCase
+            const mappedOrders = accepted.map(a => ({
+                ...a,
+                vendorData: a.vendor_data || a.vendorData,
+                sectionStatuses: a.section_statuses || a.sectionStatuses,
+                sheet: a.sheet_data || a.sheet || {},
+            }));
+
+            setAcceptedOrders(mappedOrders);
+            setFilmSizes(sizesRes.map(s => s.size || s));
+        } catch (err) {
+            toast.error('Failed to load orders');
+        }
     };
 
     useEffect(() => {
@@ -59,105 +70,131 @@ export default function VendorOrderProgressPage() {
     }, [user]);
 
     const handleSectionStatus = (assignmentId, sectionIndex, newStatus) => {
-        const all = getAssignments();
-        const updated = all.map((a) => {
-            if (a.id === assignmentId) {
-                const sectionStatuses = a.sectionStatuses ? [...a.sectionStatuses] : a.sheet.sections.map(() => 'pending');
-                sectionStatuses[sectionIndex] = newStatus;
-                return { ...a, sectionStatuses };
-            }
-            return a;
+        setAcceptedOrders(prev => {
+            const updated = prev.map((a) => {
+                if (a.id === assignmentId) {
+                    const sectionStatuses = a.sectionStatuses ? [...a.sectionStatuses] : a.sheet.sections.map(() => 'pending');
+                    sectionStatuses[sectionIndex] = newStatus;
+                    return { ...a, sectionStatuses };
+                }
+                return a;
+            });
+            const changed = updated.find(a => a.id === assignmentId);
+            debouncedSave(assignmentId, { vendorData: changed.vendorData, sectionStatuses: changed.sectionStatuses });
+            return updated;
         });
-        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-        const mine = updated.filter(
-            (a) => a.vendorNo === user?.vendorId && a.status === 'accepted'
-        );
-        setAcceptedOrders(mine);
         toast.success(`Section marked as ${newStatus}`);
     };
 
     const handleVendorDataChange = (assignmentId, sIdx, rIdx, field, value) => {
-        const all = getAssignments();
-        const updated = all.map((a) => {
-            if (a.id === assignmentId) {
-                const newVendorData = a.vendorData ? JSON.parse(JSON.stringify(a.vendorData)) : {};
-                if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
-                if (!newVendorData[sIdx][rIdx]) newVendorData[sIdx][rIdx] = { spotNo: '', filmSize: '', observations: [] };
+        setAcceptedOrders(prev => {
+            const updated = prev.map((a) => {
+                if (a.id === assignmentId) {
+                    const newVendorData = a.vendorData ? JSON.parse(JSON.stringify(a.vendorData)) : {};
+                    if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
+                    if (!newVendorData[sIdx][rIdx]) newVendorData[sIdx][rIdx] = { spotNo: '', filmSize: '', observations: [] };
 
-                newVendorData[sIdx][rIdx][field] = value;
+                    newVendorData[sIdx][rIdx][field] = value;
 
-                if (field === 'spotNo') {
-                    const N = parseInt(value, 10);
-                    const existingObs = newVendorData[sIdx][rIdx].observations || [];
-                    const newObservations = [];
-                    if (!isNaN(N) && N > 0 && N <= 100) {
-                        for (let i = 0; i < N; i++) {
-                            let label = N === 1 ? '0-1' : `${i}-${(i + 1) === N ? 0 : i + 1}`;
-                            newObservations.push({
-                                label,
-                                value: existingObs[i]?.value || '',
-                                status: existingObs[i]?.status || 'pending'
-                            });
+                    if (field === 'spotNo') {
+                        const N = parseInt(value, 10);
+                        const existingObs = newVendorData[sIdx][rIdx].observations || [];
+                        const newObservations = [];
+                        if (!isNaN(N) && N > 0 && N <= 100) {
+                            for (let i = 0; i < N; i++) {
+                                let label = N === 1 ? '0-1' : `${i}-${(i + 1) === N ? 0 : i + 1}`;
+                                newObservations.push({
+                                    label,
+                                    value: existingObs[i]?.value || '',
+                                    status: existingObs[i]?.status || 'pending'
+                                });
+                            }
                         }
+                        newVendorData[sIdx][rIdx].observations = newObservations;
                     }
-                    newVendorData[sIdx][rIdx].observations = newObservations;
-                }
 
-                return { ...a, vendorData: newVendorData };
+                    return { ...a, vendorData: newVendorData };
+                }
+                return a;
+            });
+            const changed = updated.find(a => a.id === assignmentId);
+            if (changed) {
+                debouncedSave(assignmentId, { 
+                    vendorData: changed.vendorData, 
+                    sectionStatuses: changed.sectionStatuses || (changed.sheet && changed.sheet.sections ? changed.sheet.sections.map(()=>'pending') : [])
+                });
             }
-            return a;
+            return updated;
         });
-        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-        setAcceptedOrders(updated.filter(a => a.vendorNo === user?.vendorId && a.status === 'accepted'));
     };
 
     const handleObservationStatus = (assignmentId, sIdx, rIdx, obsIdx, newStatus) => {
-        const all = getAssignments();
         let name = '';
-        const updated = all.map((a) => {
-            if (a.id === assignmentId) {
-                const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
-                newVendorData[sIdx][rIdx].observations[obsIdx].status = newStatus;
-                name = newVendorData[sIdx][rIdx].observations[obsIdx].label;
-                return { ...a, vendorData: newVendorData };
+        setAcceptedOrders(prev => {
+            const updated = prev.map((a) => {
+                if (a.id === assignmentId) {
+                    const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
+                    newVendorData[sIdx][rIdx].observations[obsIdx].status = newStatus;
+                    name = newVendorData[sIdx][rIdx].observations[obsIdx].label;
+                    return { ...a, vendorData: newVendorData };
+                }
+                return a;
+            });
+            const changed = updated.find(a => a.id === assignmentId);
+            if (changed) {
+                debouncedSave(assignmentId, { 
+                    vendorData: changed.vendorData, 
+                    sectionStatuses: changed.sectionStatuses || (changed.sheet && changed.sheet.sections ? changed.sheet.sections.map(()=>'pending') : [])
+                });
             }
-            return a;
+            return updated;
         });
-        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-        setAcceptedOrders(updated.filter(a => a.vendorNo === user?.vendorId && a.status === 'accepted'));
-        toast.success(`Observation ${name} marked as ${newStatus}`);
+        toast.success(`Observation status updated to ${newStatus}`);
     };
 
     const handleObservationValue = (assignmentId, sIdx, rIdx, obsIdx, value) => {
-        const all = getAssignments();
-        const updated = all.map((a) => {
-            if (a.id === assignmentId) {
-                const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
-                newVendorData[sIdx][rIdx].observations[obsIdx].value = value;
-                return { ...a, vendorData: newVendorData };
+        setAcceptedOrders(prev => {
+            const updated = prev.map((a) => {
+                if (a.id === assignmentId) {
+                    const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
+                    newVendorData[sIdx][rIdx].observations[obsIdx].value = value;
+                    return { ...a, vendorData: newVendorData };
+                }
+                return a;
+            });
+            const changed = updated.find(a => a.id === assignmentId);
+            if (changed) {
+                debouncedSave(assignmentId, { 
+                    vendorData: changed.vendorData, 
+                    sectionStatuses: changed.sectionStatuses || (changed.sheet && changed.sheet.sections ? changed.sheet.sections.map(()=>'pending') : [])
+                });
             }
-            return a;
+            return updated;
         });
-        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-        setAcceptedOrders(updated.filter(a => a.vendorNo === user?.vendorId && a.status === 'accepted'));
     };
 
-    const handleSubmitSheet = (assignmentId) => {
-        const all = getAssignments();
-        const updated = all.map((a) => {
-            if (a.id === assignmentId) {
-                const sectionStatuses = a.sectionStatuses ? [...a.sectionStatuses] : (a.sheet.sections || []).map(() => 'pending');
-                const completedStatuses = sectionStatuses.map(s => s === 'pending' ? 'complete' : s);
-                return { ...a, submitted: true, submittedAt: new Date().toISOString(), sectionStatuses: completedStatuses };
-            }
-            return a;
-        });
-        localStorage.setItem(ASSIGNED_KEY, JSON.stringify(updated));
-        const mine = updated.filter(
-            (a) => a.vendorNo === user?.vendorId && a.status === 'accepted'
-        );
-        setAcceptedOrders(mine);
-        toast.success('Sheet submitted to company!');
+    const handleSubmitSheet = async (assignmentId) => {
+        try {
+            const assignment = acceptedOrders.find(a => a.id === assignmentId);
+            const sectionStatuses = assignment.sectionStatuses ? [...assignment.sectionStatuses] : (assignment.sheet.sections || []).map(() => 'pending');
+            const completedStatuses = sectionStatuses.map(s => s === 'pending' ? 'complete' : s);
+            
+            await vendorOrdersApi.submit(assignmentId, {
+                vendorData: assignment.vendorData,
+                sectionStatuses: completedStatuses
+            });
+            
+            setAcceptedOrders(prev => prev.map(a => {
+                if(a.id === assignmentId) {
+                    return { ...a, submitted: true, submittedAt: new Date().toISOString(), sectionStatuses: completedStatuses };
+                }
+                return a;
+            }));
+            
+            toast.success('Sheet submitted to company!');
+        } catch (error) {
+            toast.error('Failed to submit, please try again.');
+        }
     };
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -218,7 +255,7 @@ export default function VendorOrderProgressPage() {
                                                 <span>RS No: {fd.rsNo || '—'}</span>
                                                 <span>•</span>
                                                 <Clock className="h-3 w-3" />
-                                                <span>Accepted: {formatDate(assignment.respondedAt)}</span>
+                                                <span>Accepted: {formatDate(assignment.responded_at || assignment.respondedAt)}</span>
                                             </p>
                                         </div>
                                     </div>
@@ -226,7 +263,7 @@ export default function VendorOrderProgressPage() {
                                         <span className="text-xs text-slate-600 font-medium bg-slate-100 px-2 py-1 rounded">
                                             {completedObs}/{totalObs} Obs Complete
                                         </span>
-                                        {assignment.reassignedFrom && (
+                                        {(assignment.reassigned_from || assignment.reassignedFrom) && (
                                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
                                                 Reassigned
                                             </span>
@@ -480,7 +517,7 @@ export default function VendorOrderProgressPage() {
                                                 <div className="flex items-center gap-2 text-sm text-green-700">
                                                     <CheckCircle2 className="h-4 w-4" />
                                                     <span className="font-medium">Submitted</span>
-                                                    <span className="text-slate-400">({formatDate(assignment.submittedAt)})</span>
+                                                    <span className="text-slate-400">({formatDate(assignment.submitted_at || assignment.submittedAt)})</span>
                                                 </div>
                                             ) : (
                                                 <Button

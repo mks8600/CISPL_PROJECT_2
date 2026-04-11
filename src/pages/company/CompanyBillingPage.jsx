@@ -6,16 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calculator, Download, Calendar } from 'lucide-react';
 
-const ASSIGNED_KEY = 'crystal_assigned_sheets';
-
-function getAssignments() {
-    try {
-        const saved = localStorage.getItem(ASSIGNED_KEY);
-        return saved ? JSON.parse(saved) : [];
-    } catch {
-        return [];
-    }
-}
+import { assignmentsApi } from '@/lib/api/client';
 
 // Reuse the collection logic to find completed sections
 function collectAllSections(assignmentId, allAssignments) {
@@ -59,7 +50,8 @@ function isChainFullyComplete(assignmentId, allAssignments) {
     if (!assignment) return false;
     
     // The total expected sections is the number of sections on the original root sheet
-    const expectedLength = (assignment.sheet.sections || []).length;
+    const sheetData = assignment.sheet_data || assignment.sheet || {};
+    const expectedLength = (sheetData.sections || []).length;
     
     const resolved = collectAllSections(assignmentId, allAssignments);
     if (resolved.length !== expectedLength) return false;
@@ -84,31 +76,35 @@ export default function CompanyBillingPage() {
         return () => window.removeEventListener('focus', onFocus);
     }, [user?.companyId]);
 
-    const loadData = () => {
-        const all = getAssignments().filter(a => a.companyId === user?.companyId);
+    const loadData = async () => {
+        try {
+            const all = await assignmentsApi.list();
 
-        // Find "root" assignments that are fully complete
-        const completed = [];
-        const rootAssignments = all.filter((a) => !a.reassignedFrom && a.status === 'accepted' && a.submitted);
+            // Find "root" assignments that are fully complete
+            const completed = [];
+            const rootAssignments = all.filter((a) => !a.reassigned_from && !a.reassignedFrom && a.status === 'accepted' && a.submitted);
 
-        for (const root of rootAssignments) {
-            if (isChainFullyComplete(root.id, all)) {
-                const allSections = collectAllSections(root.id, all);
-                completed.push({
-                    ...root,
-                    resolvedSections: allSections,
-                });
+            for (const root of rootAssignments) {
+                if (isChainFullyComplete(root.id, all)) {
+                    const allSections = collectAllSections(root.id, all);
+                    completed.push({
+                        ...root,
+                        resolvedSections: allSections,
+                    });
+                }
             }
+            setAllCompletedSheets(completed);
+        } catch (err) {
+            console.error('Failed to load assignments', err);
         }
-        setAllCompletedSheets(completed);
     };
 
     // Extract unique vendors for the filter dropdown
     const uniqueVendors = useMemo(() => {
         const vendorMap = new Map();
         allCompletedSheets.forEach(s => {
-            if (s.vendorId && s.vendorName) {
-                vendorMap.set(s.vendorId, s.vendorName);
+            if (s.vendor_id || s.vendorId) {
+                vendorMap.set(s.vendor_id || s.vendorId, s.vendor_name || s.vendorName);
             }
         });
         return Array.from(vendorMap.entries()).map(([id, name]) => ({ id, name }));
@@ -118,7 +114,8 @@ export default function CompanyBillingPage() {
     const uniqueJobNos = useMemo(() => {
         const jobSet = new Set();
         allCompletedSheets.forEach(s => {
-            const jobNo = s.sheet?.formData?.jobNo;
+            const sheetData = s.sheet_data || s.sheet || {};
+            const jobNo = sheetData.form_data?.jobNo || sheetData.formData?.jobNo;
             if (jobNo) jobSet.add(jobNo);
         });
         return Array.from(jobSet).sort();
@@ -128,14 +125,15 @@ export default function CompanyBillingPage() {
     const billingData = useMemo(() => {
         // Filter by date, vendor, and job no first
         const filteredSheets = allCompletedSheets.filter(assignment => {
-            const sheetDate = assignment.sheet?.formData?.date;
+            const sheetData = assignment.sheet_data || assignment.sheet || {};
+            const sheetDate = sheetData.form_data?.date || sheetData.formData?.date;
             if (!sheetDate) return false; // Incomplete sheet data
             
             // Basic string comparison works for standard YYYY-MM-DD
             if (startDate && sheetDate < startDate) return false;
             if (endDate && sheetDate > endDate) return false;
-            if (selectedVendor !== 'all' && assignment.vendorId !== selectedVendor) return false;
-            if (selectedJobNo !== 'all' && assignment.sheet?.formData?.jobNo !== selectedJobNo) return false;
+            if (selectedVendor !== 'all' && (assignment.vendor_id || assignment.vendorId) !== selectedVendor) return false;
+            if (selectedJobNo !== 'all' && (sheetData.form_data?.jobNo || sheetData.formData?.jobNo) !== selectedJobNo) return false;
 
             return true;
         });

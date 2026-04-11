@@ -3,26 +3,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Building2, Users, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { dashboardApi } from '@/lib/api/client';
 
 export default function SuperAdminDashboardPage() {
   const [totalOrgs, setTotalOrgs] = useState(0);
   const [totalVendors, setTotalVendors] = useState(0);
 
   useEffect(() => {
-    // Collect stats
-    try {
-      const companies = JSON.parse(localStorage.getItem('crystal_companies') || '[]');
-      setTotalOrgs(companies.length);
-    } catch {
-      setTotalOrgs(0);
-    }
-
-    try {
-      const vendors = JSON.parse(localStorage.getItem('crystal_vendors') || '[]');
-      setTotalVendors(vendors.length);
-    } catch {
-      setTotalVendors(0);
-    }
+    const loadStats = async () => {
+      try {
+        const data = await dashboardApi.superadmin();
+        setTotalOrgs(data.totalCompanies || 0);
+        setTotalVendors(data.totalVendors || 0);
+      } catch {
+        setTotalOrgs(0);
+        setTotalVendors(0);
+      }
+    };
+    loadStats();
   }, []);
 
   return (

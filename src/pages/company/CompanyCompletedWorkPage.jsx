@@ -4,16 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, CheckCircle2, Printer, Download } from 'lucide-react';
 
-const ASSIGNED_KEY = 'crystal_assigned_sheets';
-
-function getAssignments() {
-    try {
-        const saved = localStorage.getItem(ASSIGNED_KEY);
-        return saved ? JSON.parse(saved) : [];
-    } catch {
-        return [];
-    }
-}
+import { assignmentsApi } from '@/lib/api/client';
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -38,9 +29,10 @@ function collectAllSections(assignmentId, allAssignments) {
         const assignment = allAssignments.find((a) => a.id === currentId);
         if (!assignment) return;
 
-        const sections = assignment.sheet.sections || [];
-        const sectionStatuses = assignment.sectionStatuses || sections.map(() => 'pending');
-        const reviewStatuses = assignment.reviewStatuses || sections.map(() => null);
+        const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const sections = sheetData.sections || [];
+        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || sections.map(() => 'pending');
+        const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || sections.map(() => null);
 
         sections.forEach((section, idx) => {
             if (sectionStatuses[idx] === 'reassigned') {
@@ -49,16 +41,17 @@ function collectAllSections(assignmentId, allAssignments) {
             // Only add if we haven't seen this serial number yet
             if (section.serialNo && !seenSerials.has(section.serialNo)) {
                 seenSerials.add(section.serialNo);
+                const vDataArr = assignment.vendor_data || assignment.vendorData;
                 result.push({ 
                     section, 
                     reviewStatus: reviewStatuses[idx],
-                    vDataMap: assignment.vendorData ? assignment.vendorData[idx] : null
+                    vDataMap: vDataArr ? vDataArr[idx] : null
                 });
             }
         });
 
         // Traverse children
-        const children = allAssignments.filter((a) => a.reassignedFrom === currentId);
+        const children = allAssignments.filter((a) => a.reassigned_from === currentId || a.reassignedFrom === currentId);
         for (const child of children) {
             traverse(child.id);
         }
@@ -83,7 +76,8 @@ function isChainFullyComplete(assignmentId, allAssignments) {
     if (!assignment) return false;
     
     // The total expected sections is the number of sections on the original root sheet
-    const expectedLength = (assignment.sheet.sections || []).length;
+    const sheetData = assignment.sheet_data || assignment.sheet || {};
+    const expectedLength = (sheetData.sections || []).length;
     
     const resolved = collectAllSections(assignmentId, allAssignments);
     if (resolved.length !== expectedLength) return false;
@@ -104,7 +98,8 @@ export default function CompanyCompletedWorkPage() {
     }, [user?.companyId]);
 
     const exportToCSV = (assignment) => {
-        const fd = assignment.sheet.formData;
+        const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const fd = sheetData.form_data || sheetData.formData || {};
         const allSections = assignment.resolvedSections || [];
         
         let csv = 'Job No,Date,RS No,Vendor,Serial No,Weld Description,Spot No,Film Size,Observations,Remark\n';
@@ -117,7 +112,7 @@ export default function CompanyCompletedWorkPage() {
                     `"${fd.jobNo || ''}"`,
                     `"${formatDate(fd.date)}"`,
                     `"${fd.rsNo || ''}"`,
-                    `"${assignment.vendorName || ''}"`,
+                    `"${assignment.vendor_name || assignment.vendorName || ''}"`,
                     `"${section.serialNo || ''}"`,
                     `"${(row.jobWeldDescription || '').replace(/"/g, '""')}"`,
                     `"${vData.spotNo || ''}"`,
@@ -138,13 +133,14 @@ export default function CompanyCompletedWorkPage() {
         URL.revokeObjectURL(url);
     };
 
-    const loadData = () => {
-        const all = getAssignments().filter(a => a.companyId === user?.companyId);
+    const loadData = async () => {
+        try {
+            const all = await assignmentsApi.list();
 
-        // Find "root" assignments (ones that are NOT reassigned from another)
-        // that have their entire chain fully complete
-        const completed = [];
-        const rootAssignments = all.filter((a) => !a.reassignedFrom && a.status === 'accepted' && a.submitted);
+            // Find "root" assignments (ones that are NOT reassigned from another)
+            // that have their entire chain fully complete
+            const completed = [];
+            const rootAssignments = all.filter((a) => !a.reassigned_from && !a.reassignedFrom && a.status === 'accepted' && a.submitted);
 
         for (const root of rootAssignments) {
             if (isChainFullyComplete(root.id, all)) {
@@ -156,7 +152,10 @@ export default function CompanyCompletedWorkPage() {
             }
         }
 
-        setCompletedItems(completed);
+            setCompletedItems(completed);
+        } catch (err) {
+            console.error('Failed to load completed assignments', err);
+        }
     };
 
     return (
@@ -184,7 +183,8 @@ export default function CompanyCompletedWorkPage() {
             ) : (
                 <div className="space-y-4">
                     {completedItems.map((assignment) => {
-                        const fd = assignment.sheet.formData;
+                        const sheetData = assignment.sheet_data || assignment.sheet || {};
+                        const fd = sheetData.form_data || sheetData.formData || {};
                         const isExpanded = expandedId === assignment.id;
                         const allSections = assignment.resolvedSections || [];
 
@@ -224,7 +224,7 @@ export default function CompanyCompletedWorkPage() {
                                                 <span className="font-normal text-slate-500 ml-2">— {formatDate(fd.date)}</span>
                                             </p>
                                             <p className="text-sm text-slate-500">
-                                                Vendor: <span className="font-medium text-slate-700">{assignment.vendorName}</span> ({assignment.vendorNo})
+                                                Vendor: <span className="font-medium text-slate-700">{assignment.vendor_name || assignment.vendorName}</span> ({assignment.vendor_no || assignment.vendorNo})
                                                 {fd.rsNo && <span className="ml-2">• RS: {fd.rsNo}</span>}
                                             </p>
                                         </div>
@@ -246,7 +246,7 @@ export default function CompanyCompletedWorkPage() {
                                             <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm p-4 bg-green-50 rounded-lg print:border print:border-slate-300 print:bg-white print:mb-4">
                                                 <div><span className="text-slate-500">Job No:</span> <span className="font-semibold text-slate-900 ml-1">{fd.jobNo}</span></div>
                                                 <div><span className="text-slate-500">Date:</span> <span className="font-semibold text-slate-900 ml-1">{formatDate(fd.date)}</span></div>
-                                                <div><span className="text-slate-500">Vendor:</span> <span className="font-semibold text-slate-900 ml-1">{assignment.vendorName}</span></div>
+                                                <div><span className="text-slate-500">Vendor:</span> <span className="font-semibold text-slate-900 ml-1">{assignment.vendor_name || assignment.vendorName}</span></div>
                                                 <div><span className="text-slate-500">RS No:</span> <span className="font-semibold text-slate-900 ml-1">{fd.rsNo || '—'}</span></div>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -312,7 +312,7 @@ export default function CompanyCompletedWorkPage() {
                                                                             {vData.filmSize || '—'}
                                                                         </td>
                                                                         
-                                                                        {vData.observations.length > 0 ? (
+                                                                        {vData.observations && vData.observations.length > 0 ? (
                                                                             <>
                                                                                 <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{vData.observations[0].label}</td>
                                                                                 <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">
@@ -340,7 +340,7 @@ export default function CompanyCompletedWorkPage() {
                                                                         )}
                                                                     </tr>
                                                                     
-                                                                    {vData.observations.slice(1).map((obs, offsetIdx) => (
+                                                                    {(vData.observations || []).slice(1).map((obs, offsetIdx) => (
                                                                         <tr key={offsetIdx + 1} className="border-b border-slate-200 last:border-b-0">
                                                                             <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{obs.label}</td>
                                                                             <td className="border-r border-slate-400 px-2 py-1.5 text-center w-24 bg-white font-bold text-slate-900 border-b border-slate-200">
@@ -394,10 +394,10 @@ export default function CompanyCompletedWorkPage() {
 
 
                                         {/* Submitted info */}
-                                        {assignment.submittedAt && (
+                                        {(assignment.submitted_at || assignment.submittedAt) && (
                                             <div className="border-t print:border-0 px-4 py-3 bg-green-50 print:bg-white text-sm text-green-700 print:text-slate-500 flex items-center gap-2">
                                                 <CheckCircle2 className="h-4 w-4 print:hidden" />
-                                                <span className="print:italic">Submitted to Company Portal on {formatDate(assignment.submittedAt)}</span>
+                                                <span className="print:italic">Submitted to Company Portal on {formatDate(assignment.submitted_at || assignment.submittedAt)}</span>
                                             </div>
                                         )}
                                     </div>
