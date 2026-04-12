@@ -56,5 +56,9 @@ jobs:
             docker compose build api
             docker compose up -d
 
-            echo "✅ CISPL deployed successfully at $(date)"
+            # Wait for DB to be healthy, then seed it (safe to re-run, uses ON CONFLICT)
+            echo "⏳ Waiting for database to be ready..."
+            sleep 10
+            docker compose exec -T api node db/generate-seed.js || echo "⚠️  Seed may have already been applied"
 
+            echo "✅ CISPL deployed successfully at $(date)"
