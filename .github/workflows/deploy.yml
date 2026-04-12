@@ -24,6 +24,15 @@ jobs:
         working-directory: ./
         run: npm run build
 
+      - name: Copy dist to VPS
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "dist"
+          target: "/home/deploy/cispl-project"
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -33,9 +42,6 @@ jobs:
           script: |
             cd /home/deploy/cispl-project
             git pull origin main
-            
-            # Copy built frontend to the dist mount directory
-            cp -r dist/* frontend-dist/
             
             # Rebuild and restart containers
             docker compose build api
