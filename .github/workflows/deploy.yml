@@ -25,13 +25,15 @@ jobs:
         run: npm run build
 
       - name: Copy dist to VPS
-        uses: appleboy/scp-action@v0.1.4
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          source: "dist"
+          source: "dist/"
           target: "/home/deploy/cispl-project"
+          overwrite: true
+          rm: true
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -42,9 +44,17 @@ jobs:
           script: |
             cd /home/deploy/cispl-project
             git pull origin main
-            
-            # Rebuild and restart containers
+
+            # Create backend .env if it doesn't exist
+            if [ ! -f backend/.env ]; then
+              cp backend/.env.example backend/.env
+              echo "⚠️  Created backend/.env from .env.example — please update secrets!"
+            fi
+
+            # Rebuild and restart all containers
+            docker compose down
             docker compose build api
             docker compose up -d
-            
+
             echo "✅ CISPL deployed successfully at $(date)"
+
