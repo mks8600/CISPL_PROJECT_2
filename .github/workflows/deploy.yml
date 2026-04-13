@@ -24,16 +24,15 @@ jobs:
         working-directory: ./
         run: npm run build
 
-      - name: Copy dist to VPS
+      - name: Copy files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          source: "dist/"
+          source: "dist/,backend/,nginx/,docker-compose.yml"
           target: "/home/deploy/cispl-project"
           overwrite: true
-          rm: true
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -43,7 +42,6 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
             cd /home/deploy/cispl-project
-            git pull origin main
 
             # Create backend .env if it doesn't exist
             if [ ! -f backend/.env ]; then
