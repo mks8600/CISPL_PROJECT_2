@@ -5,8 +5,8 @@ import { authenticate, requirePortal } from '../middleware/auth.js';
 
 const router = Router();
 
-// All routes require superadmin
-router.use(authenticate, requirePortal('superadmin'));
+// All routes require superadmin or company portal
+router.use(authenticate, requirePortal('superadmin', 'company'));
 
 // GET /api/vendors — list all vendors
 router.get('/', async (req, res) => {

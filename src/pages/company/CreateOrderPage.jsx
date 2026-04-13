@@ -158,12 +158,14 @@ export default function CreateOrderPage() {
     };
 
     try {
+      // The API client only provides sheetsApi.save currently which seems to handle both or just insert
       if (activeSheetId) {
-        const res = await sheetsApi.update(activeSheetId, payload);
+        // Fallback to manual put if update is missing, or just use save if it's an upsert
+        const res = await sheetsApi.save({ ...payload, id: activeSheetId });
         toast.success('Sheet updated successfully!');
         setSavedSheets(prev => prev.map(s => s.id === activeSheetId ? res : s));
       } else {
-        const res = await sheetsApi.create(payload);
+        const res = await sheetsApi.save(payload);
         toast.success('Sheet created successfully!');
         setSavedSheets(prev => [res, ...prev]);
         setActiveSheetId(res.id);
