@@ -33,7 +33,7 @@ router.post('/', async (req, res) => {
       const result = await pool.query(
         `UPDATE sheets SET form_data = $1, sections = $2, updated_at = NOW()
          WHERE id = $3 AND company_id = $4 RETURNING *`,
-        [formData, sections, id, req.user.companyId]
+        [JSON.stringify(formData), JSON.stringify(sections), id, req.user.companyId]
       );
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Sheet not found' });
@@ -52,7 +52,7 @@ router.post('/', async (req, res) => {
       const result = await pool.query(
         `UPDATE sheets SET form_data = $1, sections = $2, updated_at = NOW()
          WHERE id = $3 RETURNING *`,
-        [formData, sections, dup.rows[0].id]
+        [JSON.stringify(formData), JSON.stringify(sections), dup.rows[0].id]
       );
       return res.json(result.rows[0]);
     }
@@ -61,7 +61,7 @@ router.post('/', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO sheets (company_id, company_name, form_data, sections)
        VALUES ($1, $2, $3, $4) RETURNING *`,
-      [req.user.companyId, req.user.companyName, formData, sections]
+      [req.user.companyId, req.user.companyName, JSON.stringify(formData), JSON.stringify(sections)]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
