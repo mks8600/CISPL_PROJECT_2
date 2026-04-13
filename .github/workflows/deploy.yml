@@ -24,6 +24,15 @@ jobs:
         working-directory: ./
         run: npm run build
 
+      - name: Pre-cleanup old dist
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          script: |
+            rm -rf /home/deploy/cispl-project/dist
+
       - name: Copy files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
