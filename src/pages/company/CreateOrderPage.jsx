@@ -49,6 +49,7 @@ export default function CreateOrderPage() {
   const [savedSheets, setSavedSheets] = useState([]);
   const [activeSheetId, setActiveSheetId] = useState(null);
   const [showSavedSheets, setShowSavedSheets] = useState(false);
+  const [jobsList, setJobsList] = useState([]);
 
   // Data isolation: load this company's sheets and jobs
   useEffect(() => {
