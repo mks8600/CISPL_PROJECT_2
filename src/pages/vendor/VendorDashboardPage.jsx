@@ -25,12 +25,8 @@ export default function VendorDashboardPage() {
         if (!user) return;
         const load = async () => {
             try {
-                const [dashRes, sizesRes] = await Promise.all([
-                    dashboardApi.vendor(),
-                    filmSizesApi.list()
-                ]);
+                const dashRes = await dashboardApi.vendor();
                 setStatsData(dashRes);
-                setFilmSizes(sizesRes); // Assuming it returns an array of objects like { id, size }
             } catch (err) {
                 console.error('Failed to load dashboard', err);
             }
@@ -134,59 +130,6 @@ export default function VendorDashboardPage() {
 
             {/* Settings Row */}
             <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                    <CardHeader className="bg-slate-50 border-b pb-4">
-                        <div className="flex items-center gap-2">
-                            <div className="p-2 bg-blue-100 rounded-md text-blue-700">
-                                <Film className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <CardTitle className="text-lg">Manage Film Sizes</CardTitle>
-                                <CardDescription>Add file/film sizes to use as quick suggestions</CardDescription>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-6 space-y-4">
-                        <form onSubmit={handleAddFilmSize} className="flex items-center gap-2">
-                            <Input
-                                placeholder="Enter size (e.g. 4x4, 8x10)"
-                                value={newFilmSize}
-                                onChange={(e) => setNewFilmSize(e.target.value)}
-                            />
-                            <Button type="submit" className="gap-2 bg-blue-600 hover:bg-blue-700 font-medium whitespace-nowrap">
-                                <PlusCircle className="h-4 w-4" />
-                                Add Size
-                            </Button>
-                        </form>
-                        
-                        <div className="border rounded-md divide-y overflow-hidden">
-                            {filmSizes.length === 0 ? (
-                                <div className="p-4 text-center text-sm text-slate-500 bg-slate-50 italic">
-                                    No film sizes added yet. Add one above.
-                                </div>
-                            ) : (
-                                filmSizes.map((sizeObj) => (
-                                    <div key={sizeObj.id} className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 transition-colors">
-                                        <div className="flex items-center gap-2">
-                                            <Film className="h-4 w-4 text-slate-400" />
-                                            <span className="font-medium text-slate-700">{sizeObj.size}</span>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleRemoveFilmSize(sizeObj)}
-                                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
                 {/* Placeholder for future detailed orders list component */}
                 <Card>
                     <CardHeader>

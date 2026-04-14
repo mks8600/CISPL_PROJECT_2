@@ -41,10 +41,7 @@ export default function VendorOrderProgressPage() {
 
     const loadOrders = async () => {
         try {
-            const [ordersRes, sizesRes] = await Promise.all([
-                vendorOrdersApi.list(),
-                filmSizesApi.list()
-            ]);
+            const ordersRes = await vendorOrdersApi.list();
             const accepted = ordersRes.filter((a) => a.status === 'accepted');
             
             // Map snake_case to camelCase
@@ -56,7 +53,8 @@ export default function VendorOrderProgressPage() {
             }));
 
             setAcceptedOrders(mappedOrders);
-            setFilmSizes(sizesRes.map(s => s.size || s));
+            // Since vendors do not own film sizes, clear them out
+            setFilmSizes([]);
         } catch (err) {
             toast.error('Failed to load orders');
         }
