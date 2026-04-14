@@ -44,13 +44,20 @@ export default function VendorOrderProgressPage() {
             const ordersRes = await vendorOrdersApi.list();
             const accepted = ordersRes.filter((a) => a.status === 'accepted');
             
-            // Map snake_case to camelCase
-            const mappedOrders = accepted.map(a => ({
-                ...a,
-                vendorData: a.vendor_data || a.vendorData,
-                sectionStatuses: a.section_statuses || a.sectionStatuses,
-                sheet: a.sheet_data || a.sheet || {},
-            }));
+            // Map snake_case to camelCase deeply to prevent undefined crashes
+            const mappedOrders = accepted.map(a => {
+                const sheetData = a.sheet_data || a.sheet || {};
+                return {
+                    ...a,
+                    vendorData: a.vendor_data || a.vendorData,
+                    sectionStatuses: a.section_statuses || a.sectionStatuses,
+                    sheet: {
+                        ...sheetData,
+                        formData: sheetData.form_data || sheetData.formData || {},
+                        sections: sheetData.sections || []
+                    }
+                };
+            });
 
             setAcceptedOrders(mappedOrders);
             // Since vendors do not own film sizes, clear them out

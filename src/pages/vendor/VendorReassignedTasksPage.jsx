@@ -31,9 +31,25 @@ export default function VendorReassignedTasksPage() {
     const loadOrders = async () => {
         try {
             const all = await vendorOrdersApi.list();
-            // The backend returns only the orders assigned to the vendor, but we keep reassigned ones only
             const mine = all.filter((a) => a.reassigned_from || a.reassignedFrom);
-            setAssignments(mine);
+            
+            // Map snake_case to camelCase deeply to prevent undefined crashes
+            const mappedOrders = mine.map(a => {
+                const sheetData = a.sheet_data || a.sheet || {};
+                return {
+                    ...a,
+                    vendorData: a.vendor_data || a.vendorData,
+                    reviewStatuses: a.review_statuses || a.reviewStatuses,
+                    reviewDescriptions: a.review_descriptions || a.reviewDescriptions,
+                    sheet: {
+                        ...sheetData,
+                        formData: sheetData.form_data || sheetData.formData || {},
+                        sections: sheetData.sections || []
+                    }
+                };
+            });
+
+            setAssignments(mappedOrders);
         } catch (error) {
             toast.error('Failed to load orders');
         }

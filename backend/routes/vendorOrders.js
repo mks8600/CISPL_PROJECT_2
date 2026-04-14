@@ -64,7 +64,7 @@ router.put('/:id/data', async (req, res) => {
     const result = await pool.query(
       `UPDATE assignments SET vendor_data = $1, section_statuses = $2, updated_at = NOW()
        WHERE id = $3 AND vendor_id = $4 RETURNING *`,
-      [vendorData, JSON.stringify(sectionStatuses), req.params.id, req.user.id]
+      [vendorData ? JSON.stringify(vendorData) : null, JSON.stringify(sectionStatuses), req.params.id, req.user.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Order not found' });
@@ -86,7 +86,7 @@ router.put('/:id/submit', async (req, res) => {
          vendor_data = $1, section_statuses = $2,
          submitted = TRUE, submitted_at = NOW(), updated_at = NOW()
        WHERE id = $3 AND vendor_id = $4 RETURNING *`,
-      [vendorData, JSON.stringify(sectionStatuses), req.params.id, req.user.id]
+      [vendorData ? JSON.stringify(vendorData) : null, JSON.stringify(sectionStatuses), req.params.id, req.user.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Order not found' });
