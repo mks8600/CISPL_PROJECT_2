@@ -11,7 +11,14 @@ router.use(authenticate, requirePortal('superadmin'));
 // GET /api/companies — list all organizations
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM companies ORDER BY created_at DESC');
+    const result = await pool.query(`
+      SELECT 
+        c.*, 
+        u.email as admin_login_id
+      FROM companies c
+      LEFT JOIN users u ON u.company_id = c.id AND u.role = 'admin'
+      ORDER BY c.created_at DESC
+    `);
     res.json(result.rows);
   } catch (err) {
     console.error('Get companies error:', err);

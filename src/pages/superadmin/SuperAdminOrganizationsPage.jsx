@@ -238,10 +238,12 @@ export default function SuperAdminOrganizationsPage() {
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right text-sm text-slate-500 hidden sm:block">
-                                                    {org.adminLoginId ? (
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                            Admin Provisioned
-                                                        </span>
+                                                    {org.adminLoginId || org.admin_login_id ? (
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                {org.adminLoginId || org.admin_login_id}
+                                                            </span>
+                                                        </div>
                                                     ) : (
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                                                             Pending Access
