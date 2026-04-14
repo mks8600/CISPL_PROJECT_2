@@ -117,6 +117,7 @@ CREATE TABLE assignments (
     submitted_at     TIMESTAMPTZ,
     section_statuses JSONB,
     review_statuses  JSONB,
+    review_descriptions JSONB,
     vendor_data      JSONB,
     reassigned_from  UUID REFERENCES assignments(id) ON DELETE SET NULL,
     assigned_at      TIMESTAMPTZ DEFAULT NOW(),
