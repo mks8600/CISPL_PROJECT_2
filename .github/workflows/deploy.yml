@@ -42,6 +42,7 @@ jobs:
           source: "dist/,backend/,nginx/,docker-compose.yml"
           target: "/home/deploy/cispl-project"
           overwrite: true
+          strip_components: 0
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -51,6 +52,18 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
             cd /home/deploy/cispl-project
+
+            # If scp placed files in a subdirectory, flatten them
+            if [ -d "CISPLproject02" ]; then
+              cp -rf CISPLproject02/* . 2>/dev/null || true
+              cp -rf CISPLproject02/.* . 2>/dev/null || true
+              rm -rf CISPLproject02
+            fi
+
+            # Verify the new dist actually exists
+            echo "📦 Checking dist contents..."
+            ls -la dist/assets/ 2>/dev/null || echo "⚠️ dist/assets not found!"
+            grep -o 'index-[a-zA-Z0-9]*\.js' dist/index.html || echo "⚠️ Could not find JS hash in index.html"
 
             # Create backend .env if it doesn't exist
             if [ ! -f backend/.env ]; then
