@@ -83,8 +83,11 @@ router.get('/vendor', authenticate, requirePortal('vendor'), async (req, res) =>
 
     // Recent orders for dashboard
     const recent = await pool.query(
-      `SELECT id, company_name, sheet_data->'formData'->>'jobNo' as job_no,
-              sheet_data->'formData'->>'date' as sheet_date, status, submitted, assigned_at
+      `SELECT id, company_name, 
+              COALESCE(sheet_data->'formData'->>'jobNo', sheet_data->'form_data'->>'jobNo', '') as job_no,
+              COALESCE(sheet_data->'formData'->>'rsNo', sheet_data->'form_data'->>'rsNo', '') as rs_no,
+              COALESCE(sheet_data->'formData'->>'date', sheet_data->'form_data'->>'date', '') as sheet_date,
+              status, submitted, assigned_at
        FROM assignments WHERE vendor_id = $1
        ORDER BY assigned_at DESC LIMIT 5`,
       [req.user.id]

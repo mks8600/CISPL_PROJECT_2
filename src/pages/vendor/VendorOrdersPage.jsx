@@ -31,29 +31,9 @@ export default function VendorOrdersPage() {
     const loadOrders = async () => {
         try {
             const all = await vendorOrdersApi.list();
-            const mine = all.filter((a) => !a.reassigned_from && !a.reassignedFrom);
-            
-            // Map snake_case to camelCase deeply to prevent undefined crashes
-            const mappedOrders = mine.map(a => {
-                const sheetData = a.sheet_data || a.sheet || {};
-                const safeSections = Array.isArray(sheetData.sections) ? sheetData.sections.map(sec => ({
-                    ...sec,
-                    rows: Array.isArray(sec.rows) ? sec.rows : []
-                })) : [];
-                return {
-                    ...a,
-                    vendorData: a.vendor_data || a.vendorData,
-                    reviewStatuses: Array.isArray(a.review_statuses || a.reviewStatuses) ? (a.review_statuses || a.reviewStatuses) : safeSections.map(() => null),
-                    reviewDescriptions: Array.isArray(a.review_descriptions || a.reviewDescriptions) ? (a.review_descriptions || a.reviewDescriptions) : safeSections.map(() => ''),
-                    sheet: {
-                        ...sheetData,
-                        formData: sheetData.form_data || sheetData.formData || {},
-                        sections: safeSections
-                    }
-                };
-            });
-
-            setAssignments(mappedOrders);
+            // Backend already sends camelCase — just filter for non-reassigned
+            const mine = all.filter((a) => !a.reassignedFrom);
+            setAssignments(mine);
         } catch (error) {
             toast.error('Failed to load orders');
         }
@@ -117,8 +97,7 @@ export default function VendorOrdersPage() {
             ) : (
                 <div className="space-y-4">
                     {assignments.map((assignment) => {
-                        const sheetData = assignment.sheet_data || assignment.sheet || {};
-                        const fd = sheetData.form_data || sheetData.formData || {};
+                        const fd = assignment.sheet.formData;
                         const isExpanded = expandedId === assignment.id;
 
                         return (
@@ -139,11 +118,11 @@ export default function VendorOrdersPage() {
                                         </div>
                                         <div>
                                             <p className="font-semibold text-slate-800">
-                                                {fd.jobNo}
+                                                {fd.jobNo || '—'}
                                                 <span className="font-normal text-slate-500 ml-2">— {formatDate(fd.date)}</span>
                                             </p>
                                             <p className="text-sm text-slate-500">
-                                                By: <span className="font-medium text-slate-700">{assignment.company_name || assignment.companyName || 'Unknown Company'}</span> • RS No: {fd.rsNo || '—'} • Assigned: {formatDate(assignment.assigned_at || assignment.assignedAt || assignment.created_at)}
+                                                By: <span className="font-medium text-slate-700">{assignment.companyName || 'Unknown Company'}</span> • RS No: {fd.rsNo || '—'} • Assigned: {formatDate(assignment.assignedAt)}
                                             </p>
                                         </div>
                                     </div>
@@ -183,7 +162,7 @@ export default function VendorOrdersPage() {
                                         </div>
 
                                         {/* Detail Sections */}
-                                        {sheetData.sections && sheetData.sections.length > 0 && (() => {
+                                        {assignment.sheet.sections.length > 0 && (() => {
                                             const reviewStatuses = assignment.reviewStatuses;
                                             const reviewDescriptions = assignment.reviewDescriptions;
                                             const hasReviewIssues = reviewStatuses.some((r) => r === 'retake' || r === 'repair');
@@ -196,7 +175,7 @@ export default function VendorOrdersPage() {
                                                         </div>
                                                     )}
                                                     <div className="px-4 pb-4 space-y-3">
-                                                        {sheetData.sections.map((section, sIdx) => {
+                                                        {assignment.sheet.sections.map((section, sIdx) => {
                                                             const rStatus = reviewStatuses[sIdx];
                                                             const rDesc = reviewDescriptions[sIdx] || '';
                                                             return (
@@ -284,9 +263,9 @@ export default function VendorOrdersPage() {
                                         )}
 
                                         {/* Already responded */}
-                                        {assignment.status !== 'pending' && (assignment.responded_at || assignment.respondedAt) && (
+                                        {assignment.status !== 'pending' && assignment.respondedAt && (
                                             <div className="border-t px-4 py-3 bg-slate-50 text-sm text-slate-500">
-                                                {assignment.status === 'accepted' ? 'Accepted' : 'Declined'} on {formatDate(assignment.responded_at || assignment.respondedAt)}
+                                                {assignment.status === 'accepted' ? 'Accepted' : 'Declined'} on {formatDate(assignment.respondedAt)}
                                             </div>
                                         )}
                                     </div>

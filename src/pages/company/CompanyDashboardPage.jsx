@@ -144,15 +144,18 @@ export default function CompanyDashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {sheets.slice(0, 5).map((sheet) => (
+              {sheets.slice(0, 5).map((sheet) => {
+                const sheetData = sheet.sheet_data || sheet.sheet || {};
+                const fd = sheetData.form_data || sheetData.formData || {};
+                return (
                 <div
                   key={sheet.id}
                   className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-lg"
                 >
                   <div>
-                    <p className="font-medium text-slate-800">{sheet.sheet?.formData?.jobNo || '—'}</p>
+                    <p className="font-medium text-slate-800">{fd.jobNo || '—'}</p>
                     <p className="text-sm text-slate-500">
-                      Vendor: {sheet.vendorName || '—'} • RS: {sheet.sheet?.formData?.rsNo || '—'}
+                      Vendor: {sheet.vendor_name || sheet.vendorName || '—'} • RS: {fd.rsNo || '—'}
                     </p>
                   </div>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -166,7 +169,8 @@ export default function CompanyDashboardPage() {
                      sheet.status === 'declined' ? 'Declined' : 'Pending'}
                   </span>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

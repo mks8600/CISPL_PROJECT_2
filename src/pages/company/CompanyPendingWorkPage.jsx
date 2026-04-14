@@ -144,7 +144,7 @@ export default function CompanyPendingWorkPage() {
                         const sections = sheetData.sections || [];
                         const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || sections.map(() => 'pending');
                         const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || sections.map(() => null);
-                        const reviewDescriptions = assignment.reviewDescriptions || sections.map(() => '');
+                        const reviewDescriptions = assignment.review_descriptions || assignment.reviewDescriptions || sections.map(() => '');
                         const pendingCount = sections.filter((_, i) =>
                             sectionStatuses[i] !== 'reassigned' && (
                                 sectionStatuses[i] === 'pending' ||

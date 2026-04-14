@@ -43,34 +43,13 @@ export default function VendorOrderProgressPage() {
         try {
             const [ordersRes, filmsRes] = await Promise.all([
                 vendorOrdersApi.list(),
-                vendorFilmSizesApi.list().catch(() => []) // Fallback to empty array if fails
+                vendorFilmSizesApi.list().catch(() => [])
             ]);
-            setFilmSizes(filmsRes);
+            setFilmSizes(filmsRes.map(f => f.size || f.size_label || f));
 
+            // Backend already sends camelCase — just filter accepted
             const accepted = ordersRes.filter((a) => a.status === 'accepted');
-            
-            // Map snake_case to camelCase deeply to prevent undefined crashes
-            const mappedOrders = accepted.map(a => {
-                const sheetData = a.sheet_data || a.sheet || {};
-                const safeSections = Array.isArray(sheetData.sections) ? sheetData.sections.map(sec => ({
-                    ...sec,
-                    rows: Array.isArray(sec.rows) ? sec.rows : []
-                })) : [];
-                return {
-                    ...a,
-                    vendorData: a.vendor_data || a.vendorData,
-                    sectionStatuses: Array.isArray(a.section_statuses || a.sectionStatuses) ? (a.section_statuses || a.sectionStatuses) : safeSections.map(() => 'pending'),
-                    reviewStatuses: Array.isArray(a.review_statuses || a.reviewStatuses) ? (a.review_statuses || a.reviewStatuses) : safeSections.map(() => null),
-                    reviewDescriptions: Array.isArray(a.review_descriptions || a.reviewDescriptions) ? (a.review_descriptions || a.reviewDescriptions) : safeSections.map(() => ''),
-                    sheet: {
-                        ...sheetData,
-                        formData: sheetData.form_data || sheetData.formData || {},
-                        sections: safeSections
-                    }
-                };
-            });
-
-            setAcceptedOrders(mappedOrders);
+            setAcceptedOrders(accepted);
         } catch (err) {
             toast.error('Failed to load orders');
         }
@@ -87,7 +66,7 @@ export default function VendorOrderProgressPage() {
         setAcceptedOrders(prev => {
             const updated = prev.map((a) => {
                 if (a.id === assignmentId) {
-                    const sectionStatuses = a.sectionStatuses ? [...a.sectionStatuses] : a.sheet.sections.map(() => 'pending');
+                    const sectionStatuses = [...a.sectionStatuses];
                     sectionStatuses[sectionIndex] = newStatus;
                     return { ...a, sectionStatuses };
                 }
@@ -104,7 +83,7 @@ export default function VendorOrderProgressPage() {
         setAcceptedOrders(prev => {
             const updated = prev.map((a) => {
                 if (a.id === assignmentId) {
-                    const newVendorData = a.vendorData ? JSON.parse(JSON.stringify(a.vendorData)) : {};
+                    const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
                     if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
                     if (!newVendorData[sIdx][rIdx]) newVendorData[sIdx][rIdx] = { spotNo: '', filmSize: '', observations: [] };
 
@@ -135,7 +114,7 @@ export default function VendorOrderProgressPage() {
             if (changed) {
                 debouncedSave(assignmentId, { 
                     vendorData: changed.vendorData, 
-                    sectionStatuses: changed.sectionStatuses || (changed.sheet && changed.sheet.sections ? changed.sheet.sections.map(()=>'pending') : [])
+                    sectionStatuses: changed.sectionStatuses
                 });
             }
             return updated;
@@ -143,13 +122,11 @@ export default function VendorOrderProgressPage() {
     };
 
     const handleObservationStatus = (assignmentId, sIdx, rIdx, obsIdx, newStatus) => {
-        let name = '';
         setAcceptedOrders(prev => {
             const updated = prev.map((a) => {
                 if (a.id === assignmentId) {
                     const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
                     newVendorData[sIdx][rIdx].observations[obsIdx].status = newStatus;
-                    name = newVendorData[sIdx][rIdx].observations[obsIdx].label;
                     return { ...a, vendorData: newVendorData };
                 }
                 return a;
@@ -158,7 +135,7 @@ export default function VendorOrderProgressPage() {
             if (changed) {
                 debouncedSave(assignmentId, { 
                     vendorData: changed.vendorData, 
-                    sectionStatuses: changed.sectionStatuses || (changed.sheet && changed.sheet.sections ? changed.sheet.sections.map(()=>'pending') : [])
+                    sectionStatuses: changed.sectionStatuses
                 });
             }
             return updated;
@@ -180,7 +157,7 @@ export default function VendorOrderProgressPage() {
             if (changed) {
                 debouncedSave(assignmentId, { 
                     vendorData: changed.vendorData, 
-                    sectionStatuses: changed.sectionStatuses || (changed.sheet && changed.sheet.sections ? changed.sheet.sections.map(()=>'pending') : [])
+                    sectionStatuses: changed.sectionStatuses
                 });
             }
             return updated;
@@ -190,8 +167,7 @@ export default function VendorOrderProgressPage() {
     const handleSubmitSheet = async (assignmentId) => {
         try {
             const assignment = acceptedOrders.find(a => a.id === assignmentId);
-            const sectionStatuses = assignment.sectionStatuses ? [...assignment.sectionStatuses] : (assignment.sheet.sections || []).map(() => 'pending');
-            const completedStatuses = sectionStatuses.map(s => s === 'pending' ? 'complete' : s);
+            const completedStatuses = assignment.sectionStatuses.map(s => s === 'pending' ? 'complete' : s);
             
             await vendorOrdersApi.submit(assignmentId, {
                 vendorData: assignment.vendorData,
@@ -210,6 +186,7 @@ export default function VendorOrderProgressPage() {
             toast.error('Failed to submit, please try again.');
         }
     };
+
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-12">
             {/* Header */}
@@ -262,14 +239,14 @@ export default function VendorOrderProgressPage() {
                                         </div>
                                         <div>
                                             <p className="font-semibold text-slate-800">
-                                                {fd.jobNo}
+                                                {fd.jobNo || '—'}
                                                 <span className="font-normal text-slate-500 ml-2">— {formatDate(fd.date)}</span>
                                             </p>
                                             <p className="text-sm text-slate-500 flex items-center gap-2">
                                                 <span>RS No: {fd.rsNo || '—'}</span>
                                                 <span>•</span>
                                                 <Clock className="h-3 w-3" />
-                                                <span>Accepted: {formatDate(assignment.responded_at || assignment.respondedAt)}</span>
+                                                <span>Accepted: {formatDate(assignment.respondedAt)}</span>
                                             </p>
                                         </div>
                                     </div>
@@ -277,7 +254,7 @@ export default function VendorOrderProgressPage() {
                                         <span className="text-xs text-slate-600 font-medium bg-slate-100 px-2 py-1 rounded">
                                             {completedObs}/{totalObs} Obs Complete
                                         </span>
-                                        {(assignment.reassigned_from || assignment.reassignedFrom) && (
+                                        {assignment.reassignedFrom && (
                                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
                                                 Reassigned
                                             </span>
@@ -319,13 +296,11 @@ export default function VendorOrderProgressPage() {
                                         </div>
 
                                         {/* Detail Sections with Status Toggle */}
-                                        {assignment.sheet.sections && assignment.sheet.sections.length > 0 && (
+                                        {assignment.sheet.sections.length > 0 && (
                                             <div className="px-4 pb-4 space-y-3">
                                                 {assignment.sheet.sections.map((section, sIdx) => {
-                                                    const reviewStatuses = assignment.reviewStatuses || assignment.sheet.sections.map(() => null);
-                                                    const reviewDescriptions = assignment.reviewDescriptions || assignment.sheet.sections.map(() => '');
-                                                    const rStatus = reviewStatuses[sIdx];
-                                                    const rDesc = reviewDescriptions[sIdx] || '';
+                                                    const rStatus = assignment.reviewStatuses[sIdx];
+                                                    const rDesc = assignment.reviewDescriptions[sIdx] || '';
                                                     return (
                                                         <table key={sIdx} className="w-full border-collapse border border-slate-400 text-sm">
                                                             <thead>
@@ -415,8 +390,8 @@ export default function VendorOrderProgressPage() {
                                                                                                 <SelectValue placeholder="Size" />
                                                                                             </SelectTrigger>
                                                                                             <SelectContent>
-                                                                                                {filmSizes.map(sizeObj => (
-                                                                                                    <SelectItem key={sizeObj.id} value={sizeObj.size}>{sizeObj.size}</SelectItem>
+                                                                                                {filmSizes.map((size, idx) => (
+                                                                                                    <SelectItem key={idx} value={size}>{size}</SelectItem>
                                                                                                 ))}
                                                                                             </SelectContent>
                                                                                         </Select>
@@ -537,7 +512,7 @@ export default function VendorOrderProgressPage() {
                                                 <div className="flex items-center gap-2 text-sm text-green-700">
                                                     <CheckCircle2 className="h-4 w-4" />
                                                     <span className="font-medium">Submitted</span>
-                                                    <span className="text-slate-400">({formatDate(assignment.submitted_at || assignment.submittedAt)})</span>
+                                                    <span className="text-slate-400">({formatDate(assignment.submittedAt)})</span>
                                                 </div>
                                             ) : (
                                                 <Button

@@ -1,141 +1,140 @@
 # Crystal Industries — Manufacturing Portal
 
-A web application for **Crystal Industries**, an industrial films manufacturing company. The portal manages radiographic requisition sheets, work order assignment to vendors, and order progress tracking with company review workflow.
+A robust, enterprise-grade manufacturing portal for **Crystal Industries**. This system manages the complete lifecycle of radiographic requisition sheets, from creation and vendor assignment to real-time progress tracking, company review (OK/Retake/Repair), and billing.
 
-Built with **React + Vite + Tailwind CSS v4 + shadcn/ui**.
-
----
-
-## Features
-
-### Company Portal (`/company`)
-
-| Page | Route | Description |
-|------|-------|-------------|
-| Dashboard | `/company/dashboard` | Overview, quick stats, and **Manage Film Size** tool |
-| Work Orders | `/company/orders` | Assign saved sheets to vendors |
-| Create Order | `/company/orders/create` | Create & save Radiographic Requisition Sheets with film size dropdown |
-| Manage Job No | `/company/manage-job` | Create and manage job numbers |
-| Manage Vendors | `/company/manage-vendors` | Create vendors and set login credentials |
-| Order Status | `/company/order-status` | Review submitted sections — mark as **OK**, **Retake**, or **Repair** with descriptions |
-| Pending Work | `/company/pending-work` | View incomplete, retake, and repair sections — **reassign to vendors** |
-
-### Vendor Portal (`/vendor`)
-
-| Page | Route | Description |
-|------|-------|-------------|
-| Dashboard | `/vendor/dashboard` | Vendor overview |
-| My Orders | `/vendor/orders` | View assigned sheets with company review badges (OK/Retake/Repair) and descriptions |
-| Order Progress | `/vendor/order-progress` | Mark sections as Complete/Pending, view company review status, and **submit to company** |
+The portal is a **multitenant system** supporting three distinct user roles: **Super Admin**, **Company Admin**, and **Vendor**.
 
 ---
 
-## Workflow
+## 🏗 System Architecture
 
-1. **Create Jobs** — Go to *Manage Job No* and add job numbers.
-2. **Manage Film Sizes** — Click *Manage Film Size* on the Dashboard to add film sizes (used in the requisition sheet dropdown).
-3. **Create Vendors** — Go to *Manage Vendors*, add vendors, and set their login credentials.
-4. **Create a Sheet** — Go to *Create Order*, fill the Radiographic Requisition Sheet (select film sizes from dropdown), add detail sections, and click *Save Sheet*.
-5. **Assign to Vendor** — Go to *Work Orders*, select a saved sheet and a vendor, then click *Assign*.
-6. **Vendor Responds** — Vendor logs in, views the sheet on *My Orders*, and clicks *Accept* or *Decline*.
-7. **Track Progress** — Vendor marks sections as Complete/Pending on *Order Progress*, then clicks **Submit to Company**.
-8. **Company Review** — Company reviews each section on *Order Status*, marking as **OK**, **Retake**, or **Repair** (with description).
-9. **Vendor Sees Review** — Retake/Repair badges and reasons appear on vendor's *My Orders* and *Order Progress* pages.
-10. **Reassign Pending Work** — Company views incomplete and retake/repair sections on *Pending Work* and reassigns to a vendor.
+The application is built with a modern decoupled architecture:
+
+- **Frontend**: React 19 + Vite (built with Tailwind CSS v4 and shadcn/ui)
+- **Backend**: Node.js + Express (RESTful API)
+- **Database**: PostgreSQL (Structured data with JSONB for flexible sheet schemas)
+- **Deployment**: Dockerized services for consistent environment scaling
 
 ---
 
-## Tech Stack
+## 🛣 User Portals & Features
 
-- **Framework**: React 18 + Vite
-- **Routing**: React Router DOM v7
-- **Styling**: Tailwind CSS v4
-- **UI Components**: shadcn/ui (Radix UI primitives)
-- **Icons**: Lucide React
-- **Toasts**: Sonner
-- **Data Persistence**: `localStorage` (no backend)
+### 1. Super Admin Portal (`/superadmin`)
+*Managed by top-level admins to onboard organizations.*
+- **Organizations**: Create and manage distinct organizations (Companies).
+- **Control**: Revoke access or update organization details.
+- **Global Overview**: View system-wide stats and activity.
+
+### 2. Company Portal (`/company`)
+*Used by company staff to manage work and vendors.*
+- **Dashboard**: High-level metrics on assignments, pending reviews, and vendor performance.
+- **Job Management**: Create and track specific job numbers.
+- **Vendor Management**: Create vendor accounts, set credentials, and manage relationships.
+- **Requisition Builder**: Create complex Radiographic Requisition Sheets with dynamic sections and rows.
+- **Work Assignment**: Assign specific sections of a requisition sheet to different vendors.
+- **Review System**: Specialized UI to review vendor submissions (Mark items as **OK**, **Retake**, or **Repair**).
+- **Billing**: Generate financial summaries based on completed and accepted work.
+- **Completed Works**: Archive and export (PDF/Excel) fully reviewed and completed work orders.
+
+### 3. Vendor Portal (`/vendor`)
+*Used by external vendors to execute and submit work.*
+- **Orders List**: View all assigned work with real-time status updates from the company.
+- **Execution Workflow**: Accept or decline assignments.
+- **Data Submission**: Interactive form to fill in technical observations (Spot No, Film Size, Defects) for each assigned section.
+- **Reassigned Tasks**: Dedicated view for tasks sent back for Retake or Repair.
+- **Film Size Settings**: Personalize quick-select film sizes for faster data entry.
 
 ---
 
-## Getting Started
+## 🔄 The Complete Flow
 
-### Prerequisites
+1.  **Onboarding**: Super Admin creates a **Company** and provides their Unique Organization Code.
+2.  **Setup**: Company Admin logs in and creates **Job Numbers** and **Vendors**.
+3.  **Sheet Creation**: Company creates a **Radiographic Requisition Sheet** (e.g., Job XYZ, RS #101).
+4.  **Assignment**: Company assigns specific items/sections from that sheet to a **Vendor**.
+5.  **Acceptance**: Vendor logs in, sees the new assignment, and **Accepts** it.
+6.  **Submission**: Vendor fills in the radiographic observations (dimensions, results) and **Submits** it back to the company.
+7.  **Review**: Company reviews the submission.
+    - If **OK**: The item is marked as complete.
+    - If **Repair/Retake**: The item is sent back to the vendor with a specific reason.
+8.  **Closure**: Once all items in a sheet are "OK", the work appears in **Completed Works** and is eligible for **Billing**.
 
-- Node.js 18+
-- npm
+---
 
-### Install & Run
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Framework** | React 19 + Vite |
+| **State/Auth** | React Context API |
+| **Styling** | Tailwind CSS v4 |
+| **UI Components** | Radix UI + shadcn/ui |
+| **Backend** | Node.js + Express |
+| **Database** | PostgreSQL |
+| **Containerization** | Docker + Docker Compose |
+| **Icons/UI** | Lucide React + Sonner (Toasts) |
+
+---
+
+## 🚀 Getting Started
+
+### Local Development
+
+1.  **Clone and Install**:
+    ```bash
+    git clone https://github.com/your-repo/cispl-portal.git
+    cd cispl-portal
+    npm install
+    # Also install backend deps if not using Docker
+    cd backend && npm install
+    ```
+
+2.  **Environment Setup**:
+    Create a `.env` file in the `backend/` directory:
+    ```env
+    PORT=5000
+    DATABASE_URL=postgres://user:password@localhost:5432/cispl_db
+    JWT_SECRET=your_super_secret_key
+    ```
+
+3.  **Run with Docker (Recommended)**:
+    ```bash
+    docker compose up -d --build
+    ```
+
+### Deployment to VPS
+
+1.  Push your changes to your repository.
+2.  SSH into your VPS.
+3.  Pull latest changes: `git pull origin main`.
+4.  Build frontend: `npm run build`.
+5.  Restart services: `docker compose up -d --build`.
+
+---
+
+## 📂 Project Structure
 
 ```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-### Build for Production
-
-```bash
-npm run build
-```
-
----
-
-## Default Login
-
-### Company Portal
-
-- **Email**: `admin@crystalindustries.com`
-- **Password**: `demo123`
-
-### Vendor Portal
-
-Use credentials set via the *Manage Vendors* page in the Company Portal.
-
----
-
-## Project Structure
-
-```
-src/
-├── components/
-│   ├── layout/          # Header, Sidebar
-│   └── ui/              # shadcn/ui components
-├── layouts/
-│   ├── CompanyLayout.jsx
-│   └── VendorLayout.jsx
-├── lib/
-│   ├── context/         # AuthContext
-│   ├── mock-data/       # Users, orders, vendors
-│   └── utils.js         # cn() utility
-├── pages/
-│   ├── company/
-│   │   ├── CompanyDashboardPage.jsx   # Dashboard + Manage Film Size
-│   │   ├── CompanyOrdersPage.jsx      # Assign sheets to vendors
-│   │   ├── CompanyOrderStatusPage.jsx # Review sections (OK/Retake/Repair)
-│   │   ├── CompanyPendingWorkPage.jsx # Pending/Retake/Repair → reassign
-│   │   ├── CreateOrderPage.jsx        # Create requisition sheets
-│   │   ├── ManageJobPage.jsx          # Manage job numbers
-│   │   └── ManageVendorsPage.jsx      # Manage vendor accounts
-│   └── vendor/
-│       ├── VendorDashboardPage.jsx
-│       ├── VendorOrdersPage.jsx       # View orders + review badges
-│       └── VendorOrderProgressPage.jsx # Progress tracking + submit
-└── App.jsx
+├── backend/
+│   ├── routes/          # API Endpoints (auth, assignments, billing, etc.)
+│   ├── middleware/      # Auth (JWT) and Portal-specific guards
+│   ├── db/              # Database pool configuration
+│   └── server.js        # Entry point
+├── src/
+│   ├── components/      # Shared UI (shadcn) and Layouts
+│   ├── lib/             # API client, context (Auth), and hooks
+│   └── pages/           # Portal-specific pages
+│       ├── superadmin/  # Organization & Org management
+│       ├── company/     # Order creation, review, billing
+│       └── vendor/      # Order execution & submission
+├── public/              # Static assets
+└── index.html           # SPA Entry point
 ```
 
 ---
 
-## localStorage Keys
+## 🔒 Security
 
-| Key | Description |
-|-----|-------------|
-| `crystal_auth` | Current authenticated user session |
-| `crystal_jobs` | Job numbers created in Manage Job No |
-| `crystal_vendors` | Vendors created in Manage Vendors |
-| `crystal_sheets` | Saved Radiographic Requisition Sheets |
-| `crystal_assigned_sheets` | Sheets assigned to vendors with status, review, and submission tracking |
-| `crystal_film_sizes` | Film sizes managed from Dashboard |
+- **JWT Authentication**: All API requests are secured via JSON Web Tokens.
+- **Portal Guards**: Backend middleware ensures vendors cannot access company routes and vice versa.
+- **Data Isolation**: Each company can only see its own jobs, vendors, and assignments.

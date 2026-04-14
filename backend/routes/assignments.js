@@ -60,9 +60,9 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// PUT /api/assignments/:id/review — review vendor submission (ok / reject)
+// PUT /api/assignments/:id/review — review vendor submission (bulk or single section)
 router.put('/:id/review', async (req, res) => {
-  const { sectionIndex, reviewStatus } = req.body;
+  const { sectionIndex, reviewStatus, reviewStatuses, reviewDescriptions, vendorData } = req.body;
 
   try {
     const current = await pool.query(
@@ -72,12 +72,41 @@ router.put('/:id/review', async (req, res) => {
     if (current.rows.length === 0) return res.status(404).json({ error: 'Assignment not found' });
 
     const assignment = current.rows[0];
-    const reviewStatuses = assignment.review_statuses || [];
-    reviewStatuses[sectionIndex] = reviewStatus;
 
+    // Support both bulk (array of statuses) and single-section review
+    let finalReviewStatuses;
+    let finalReviewDescriptions;
+
+    if (Array.isArray(reviewStatuses)) {
+      // Bulk mode — the frontend sends the entire arrays
+      finalReviewStatuses = reviewStatuses;
+      finalReviewDescriptions = Array.isArray(reviewDescriptions) ? reviewDescriptions : (assignment.review_descriptions || []);
+    } else {
+      // Legacy single-section mode
+      finalReviewStatuses = assignment.review_statuses || [];
+      finalReviewStatuses[sectionIndex] = reviewStatus;
+      finalReviewDescriptions = assignment.review_descriptions || [];
+    }
+
+    // Build the update query — save vendorData too if the company updated observations
+    const updates = [
+      'review_statuses = $1',
+      'review_descriptions = $2',
+      'updated_at = NOW()'
+    ];
+    const params = [JSON.stringify(finalReviewStatuses), JSON.stringify(finalReviewDescriptions)];
+    let paramIdx = 3;
+
+    if (vendorData !== undefined) {
+      updates.push(`vendor_data = $${paramIdx}`);
+      params.push(JSON.stringify(vendorData));
+      paramIdx++;
+    }
+
+    params.push(req.params.id);
     const result = await pool.query(
-      'UPDATE assignments SET review_statuses = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
-      [JSON.stringify(reviewStatuses), req.params.id]
+      `UPDATE assignments SET ${updates.join(', ')} WHERE id = $${paramIdx} RETURNING *`,
+      params
     );
     res.json(result.rows[0]);
   } catch (err) {
