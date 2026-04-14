@@ -377,7 +377,13 @@ export default function VendorOrderProgressPage() {
                                                             </thead>
                                                             <tbody>
                                                                 {section.rows.map((row, rIdx) => {
-                                                                    const vData = (assignment.vendorData && assignment.vendorData[sIdx] && assignment.vendorData[sIdx][rIdx]) || { spotNo: '', filmSize: '', observations: [] };
+                                                                    const rawVData = assignment.vendorData?.[sIdx]?.[rIdx] || {};
+                                                                    const vData = { 
+                                                                        spotNo: rawVData.spotNo || '', 
+                                                                        filmSize: rawVData.filmSize || '', 
+                                                                        observations: rawVData.observations || [],
+                                                                        remark: rawVData.remark
+                                                                    };
                                                                     const obsCount = Math.max(1, vData.observations.length);
 
                                                                     return (
