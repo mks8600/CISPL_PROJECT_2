@@ -99,6 +99,12 @@ export const filmSizesApi = {
   delete: (id) => api.delete(`/film-sizes/${id}`),
 };
 
+export const vendorFilmSizesApi = {
+  list: () => api.get('/vendor-film-sizes'),
+  create: (data) => api.post('/vendor-film-sizes', data),
+  delete: (id) => api.delete(`/vendor-film-sizes/${id}`),
+};
+
 export const billingApi = {
   getSummary: (filters = {}) => {
     const params = new URLSearchParams();

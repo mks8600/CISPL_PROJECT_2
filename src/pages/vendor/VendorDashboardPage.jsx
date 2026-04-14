@@ -5,7 +5,7 @@ import { Package, TrendingUp, Clock, AlertCircle, Film, Trash2, PlusCircle } fro
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-import { dashboardApi, filmSizesApi } from '@/lib/api/client';
+import { dashboardApi, vendorFilmSizesApi } from '@/lib/api/client';
 import { toast } from 'sonner';
 
 export default function VendorDashboardPage() {
@@ -27,6 +27,9 @@ export default function VendorDashboardPage() {
             try {
                 const dashRes = await dashboardApi.vendor();
                 setStatsData(dashRes);
+                
+                const filmsRes = await vendorFilmSizesApi.list();
+                setFilmSizes(filmsRes);
             } catch (err) {
                 console.error('Failed to load dashboard', err);
             }
@@ -41,7 +44,7 @@ export default function VendorDashboardPage() {
         const trimmed = newFilmSize.trim();
         if (!trimmed) return;
         try {
-            const res = await filmSizesApi.create({ size: trimmed });
+            const res = await vendorFilmSizesApi.create({ size: trimmed });
             setFilmSizes([...filmSizes, res]);
             setNewFilmSize('');
         } catch (err) {
@@ -51,7 +54,7 @@ export default function VendorDashboardPage() {
 
     const handleRemoveFilmSize = async (sizeObj) => {
         try {
-            await filmSizesApi.delete(sizeObj.id);
+            await vendorFilmSizesApi.delete(sizeObj.id);
             setFilmSizes(filmSizes.filter(f => f.id !== sizeObj.id));
         } catch (err) {
             toast.error('Failed to delete film size');
@@ -168,6 +171,60 @@ export default function VendorDashboardPage() {
                                 ))}
                             </div>
                         )}
+                    </CardContent>
+                </Card>
+
+                {/* Manage Film Sizes (Vendor Owned) */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center gap-2">
+                            <Film className="h-5 w-5 text-indigo-600" />
+                            <CardTitle>Manage My Film Sizes</CardTitle>
+                        </div>
+                        <CardDescription>
+                            Configure quick-select film sizes for your sheet filling
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <form onSubmit={handleAddFilmSize} className="flex items-center gap-2">
+                            <Input
+                                placeholder="E.g., 4x4, 8x10..."
+                                value={newFilmSize}
+                                onChange={(e) => setNewFilmSize(e.target.value)}
+                                className="flex-1"
+                            />
+                            <Button type="submit" variant="secondary" className="gap-1">
+                                <PlusCircle className="h-4 w-4" />
+                                <span className="hidden sm:inline">Add</span>
+                            </Button>
+                        </form>
+                        <div className="border rounded-md max-h-[160px] overflow-y-auto">
+                            {filmSizes.length === 0 ? (
+                                <div className="text-center p-4 text-sm text-slate-500 bg-slate-50">
+                                    No film sizes added yet.
+                                </div>
+                            ) : (
+                                <table className="w-full text-sm">
+                                    <tbody>
+                                        {filmSizes.map((size) => (
+                                            <tr key={size.id} className="border-b last:border-0 hover:bg-slate-50">
+                                                <td className="p-3 font-medium text-slate-700">{size.size}</td>
+                                                <td className="p-3 text-right">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                        onClick={() => handleRemoveFilmSize(size)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
                     </CardContent>
                 </Card>
             </div>

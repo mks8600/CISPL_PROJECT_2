@@ -12,6 +12,7 @@ import assignmentsRoutes from './routes/assignments.js';
 import vendorOrdersRoutes from './routes/vendorOrders.js';
 import jobsRoutes from './routes/jobs.js';
 import filmSizesRoutes from './routes/filmSizes.js';
+import vendorFilmSizesRoutes from './routes/vendorFilmSizes.js';
 import billingRoutes from './routes/billing.js';
 import dashboardRoutes from './routes/dashboard.js';
 
@@ -53,6 +54,7 @@ app.use('/api/assignments', assignmentsRoutes);
 app.use('/api/vendor-orders', vendorOrdersRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/film-sizes', filmSizesRoutes);
+app.use('/api/vendor-film-sizes', vendorFilmSizesRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 

@@ -12,7 +12,7 @@ import {
 import { TrendingUp, ChevronDown, ChevronUp, Clock, CheckCircle2, CircleDot, SendHorizonal, RotateCcw, Wrench, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { vendorOrdersApi, filmSizesApi } from '@/lib/api/client';
+import { vendorOrdersApi, vendorFilmSizesApi } from '@/lib/api/client';
 
 const debounceTimers = {};
 function debouncedSave(assignmentId, payload) {
@@ -41,7 +41,12 @@ export default function VendorOrderProgressPage() {
 
     const loadOrders = async () => {
         try {
-            const ordersRes = await vendorOrdersApi.list();
+            const [ordersRes, filmsRes] = await Promise.all([
+                vendorOrdersApi.list(),
+                vendorFilmSizesApi.list().catch(() => []) // Fallback to empty array if fails
+            ]);
+            setFilmSizes(filmsRes);
+
             const accepted = ordersRes.filter((a) => a.status === 'accepted');
             
             // Map snake_case to camelCase deeply to prevent undefined crashes
@@ -60,8 +65,6 @@ export default function VendorOrderProgressPage() {
             });
 
             setAcceptedOrders(mappedOrders);
-            // Since vendors do not own film sizes, clear them out
-            setFilmSizes([]);
         } catch (err) {
             toast.error('Failed to load orders');
         }
