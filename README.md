@@ -106,9 +106,30 @@ The application is built with a modern decoupled architecture:
 
 1.  Push your changes to your repository.
 2.  SSH into your VPS.
-3.  Pull latest changes: `git pull origin main`.
-4.  Build frontend: `npm run build`.
-5.  Restart services: `docker compose up -d --build`.
+3.  Run the following deployment commands:
+
+    ```bash
+    cd /home/deploy/cispl-project
+    git pull origin main
+
+    # Build the frontend
+    docker run --rm -v $(pwd):/app -w /app node:20 sh -c 'npm install && npm run build'
+
+    # Stop & destroy ALL old containers (including orphans from previous configs)
+    docker compose down --remove-orphans
+
+    # Rebuild images from scratch and force-recreate all containers
+    docker compose build --no-cache api
+    docker compose up -d --force-recreate
+
+    # Clean up old/dangling Docker images to free disk space
+    docker image prune -f
+    ```
+
+> **Why `--remove-orphans` and `--force-recreate`?**
+> - `--remove-orphans` kills any leftover containers from previous `docker-compose.yml` configs (e.g. renamed or removed services).
+> - `--force-recreate` ensures every container is fresh, even if Docker thinks the image hasn't changed.
+> - `docker image prune -f` removes old image layers so they don't accumulate on disk.
 
 ---
 

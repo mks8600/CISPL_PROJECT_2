@@ -58,10 +58,15 @@ jobs:
               echo "⚠️  Created backend/.env from .env.example — please update secrets!"
             fi
 
-            # Rebuild and restart all containers
-            docker compose down
-            docker compose build api
-            docker compose up -d
+            # Stop and remove ALL old containers (including orphans from renamed services)
+            docker compose down --remove-orphans
+
+            # Rebuild images from scratch and recreate all containers
+            docker compose build --no-cache api
+            docker compose up -d --force-recreate
+
+            # Clean up old/dangling images to free disk space
+            docker image prune -f
 
             # Wait for DB to be healthy, then seed it (safe to re-run, uses ON CONFLICT)
             echo "⏳ Waiting for database to be ready..."
