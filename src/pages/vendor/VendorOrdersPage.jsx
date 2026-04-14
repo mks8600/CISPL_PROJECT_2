@@ -36,15 +36,19 @@ export default function VendorOrdersPage() {
             // Map snake_case to camelCase deeply to prevent undefined crashes
             const mappedOrders = mine.map(a => {
                 const sheetData = a.sheet_data || a.sheet || {};
+                const safeSections = Array.isArray(sheetData.sections) ? sheetData.sections.map(sec => ({
+                    ...sec,
+                    rows: Array.isArray(sec.rows) ? sec.rows : []
+                })) : [];
                 return {
                     ...a,
                     vendorData: a.vendor_data || a.vendorData,
-                    reviewStatuses: a.review_statuses || a.reviewStatuses,
-                    reviewDescriptions: a.review_descriptions || a.reviewDescriptions,
+                    reviewStatuses: Array.isArray(a.review_statuses || a.reviewStatuses) ? (a.review_statuses || a.reviewStatuses) : safeSections.map(() => null),
+                    reviewDescriptions: Array.isArray(a.review_descriptions || a.reviewDescriptions) ? (a.review_descriptions || a.reviewDescriptions) : safeSections.map(() => ''),
                     sheet: {
                         ...sheetData,
                         formData: sheetData.form_data || sheetData.formData || {},
-                        sections: sheetData.sections || []
+                        sections: safeSections
                     }
                 };
             });
@@ -180,8 +184,8 @@ export default function VendorOrdersPage() {
 
                                         {/* Detail Sections */}
                                         {sheetData.sections && sheetData.sections.length > 0 && (() => {
-                                            const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || sheetData.sections.map(() => null);
-                                            const reviewDescriptions = assignment.review_descriptions || assignment.reviewDescriptions || sheetData.sections.map(() => '');
+                                            const reviewStatuses = assignment.reviewStatuses;
+                                            const reviewDescriptions = assignment.reviewDescriptions;
                                             const hasReviewIssues = reviewStatuses.some((r) => r === 'retake' || r === 'repair');
 
                                             return (

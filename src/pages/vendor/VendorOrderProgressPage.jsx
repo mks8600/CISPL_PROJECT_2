@@ -52,14 +52,20 @@ export default function VendorOrderProgressPage() {
             // Map snake_case to camelCase deeply to prevent undefined crashes
             const mappedOrders = accepted.map(a => {
                 const sheetData = a.sheet_data || a.sheet || {};
+                const safeSections = Array.isArray(sheetData.sections) ? sheetData.sections.map(sec => ({
+                    ...sec,
+                    rows: Array.isArray(sec.rows) ? sec.rows : []
+                })) : [];
                 return {
                     ...a,
                     vendorData: a.vendor_data || a.vendorData,
-                    sectionStatuses: a.section_statuses || a.sectionStatuses,
+                    sectionStatuses: Array.isArray(a.section_statuses || a.sectionStatuses) ? (a.section_statuses || a.sectionStatuses) : safeSections.map(() => 'pending'),
+                    reviewStatuses: Array.isArray(a.review_statuses || a.reviewStatuses) ? (a.review_statuses || a.reviewStatuses) : safeSections.map(() => null),
+                    reviewDescriptions: Array.isArray(a.review_descriptions || a.reviewDescriptions) ? (a.review_descriptions || a.reviewDescriptions) : safeSections.map(() => ''),
                     sheet: {
                         ...sheetData,
                         formData: sheetData.form_data || sheetData.formData || {},
-                        sections: sheetData.sections || []
+                        sections: safeSections
                     }
                 };
             });
@@ -409,8 +415,8 @@ export default function VendorOrderProgressPage() {
                                                                                                 <SelectValue placeholder="Size" />
                                                                                             </SelectTrigger>
                                                                                             <SelectContent>
-                                                                                                {filmSizes.map(size => (
-                                                                                                    <SelectItem key={size} value={size}>{size}</SelectItem>
+                                                                                                {filmSizes.map(sizeObj => (
+                                                                                                    <SelectItem key={sizeObj.id} value={sizeObj.size}>{sizeObj.size}</SelectItem>
                                                                                                 ))}
                                                                                             </SelectContent>
                                                                                         </Select>
