@@ -4,7 +4,7 @@ import './index.css'
 import App from './App'
 
 console.log('=============================================');
-console.log('DEPLOYMENT VERSION: POSTGRES_API_V9 (ACTIVE)');
+console.log('DEPLOYMENT VERSION: POSTGRES_API_V10 (ACTIVE)');
 console.log('=============================================');
 
 createRoot(document.getElementById('root')).render(
