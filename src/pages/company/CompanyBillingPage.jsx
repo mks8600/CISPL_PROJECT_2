@@ -1,67 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calculator, Download, Calendar } from 'lucide-react';
+import { Calculator, Download, Calendar, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-import { assignmentsApi } from '@/lib/api/client';
-
-// Reuse the collection logic to find completed sections
-function collectAllSections(assignmentId, allAssignments) {
-    const result = [];
-    const seenSerials = new Set();
-
-    function traverse(currentId) {
-        const assignment = allAssignments.find((a) => a.id === currentId);
-        if (!assignment) return;
-
-        const sections = assignment.sheet.sections || [];
-        const sectionStatuses = assignment.sectionStatuses || sections.map(() => 'pending');
-        const reviewStatuses = assignment.reviewStatuses || sections.map(() => null);
-
-        sections.forEach((section, idx) => {
-            if (sectionStatuses[idx] === 'reassigned') {
-                return;
-            }
-            if (section.serialNo && !seenSerials.has(section.serialNo)) {
-                seenSerials.add(section.serialNo);
-                result.push({ 
-                    section, 
-                    reviewStatus: reviewStatuses[idx],
-                    vDataMap: assignment.vendorData ? assignment.vendorData[idx] : null
-                });
-            }
-        });
-
-        const children = allAssignments.filter((a) => a.reassignedFrom === currentId);
-        for (const child of children) {
-            traverse(child.id);
-        }
-    }
-
-    traverse(assignmentId);
-    return result;
-}
-
-function isChainFullyComplete(assignmentId, allAssignments) {
-    const assignment = allAssignments.find((a) => a.id === assignmentId);
-    if (!assignment) return false;
-    
-    // The total expected sections is the number of sections on the original root sheet
-    const sheetData = assignment.sheet_data || assignment.sheet || {};
-    const expectedLength = (sheetData.sections || []).length;
-    
-    const resolved = collectAllSections(assignmentId, allAssignments);
-    if (resolved.length !== expectedLength) return false;
-    
-    return resolved.every((r) => r.reviewStatus === 'ok');
-}
+import { billingApi } from '@/lib/api/client';
 
 export default function CompanyBillingPage() {
     const { user } = useAuth();
-    const [allCompletedSheets, setAllCompletedSheets] = useState([]);
+    const [loading, setLoading] = useState(false);
+    
+    // Summary Data from Backend
+    const [billingResult, setBillingResult] = useState({
+        filmSizeTotals: {},
+        totalSpotsAll: 0,
+        sheetCount: 0,
+        vendors: [],
+        jobNos: []
+    });
     
     // Filter state
     const [startDate, setStartDate] = useState('');
@@ -71,105 +30,34 @@ export default function CompanyBillingPage() {
 
     useEffect(() => {
         loadData();
-        const onFocus = () => loadData();
-        window.addEventListener('focus', onFocus);
-        return () => window.removeEventListener('focus', onFocus);
-    }, [user?.companyId]);
+    }, [user?.companyId, startDate, endDate, selectedVendor, selectedJobNo]);
 
     const loadData = async () => {
+        setLoading(true);
         try {
-            const all = await assignmentsApi.list();
-
-            // Find "root" assignments that are fully complete
-            const completed = [];
-            const rootAssignments = all.filter((a) => !a.reassigned_from && !a.reassignedFrom && a.status === 'accepted' && a.submitted);
-
-            for (const root of rootAssignments) {
-                if (isChainFullyComplete(root.id, all)) {
-                    const allSections = collectAllSections(root.id, all);
-                    completed.push({
-                        ...root,
-                        resolvedSections: allSections,
-                    });
-                }
-            }
-            setAllCompletedSheets(completed);
+            const result = await billingApi.getSummary({
+                startDate,
+                endDate,
+                vendorId: selectedVendor,
+                jobNo: selectedJobNo
+            });
+            setBillingResult(result);
         } catch (err) {
-            console.error('Failed to load assignments', err);
+            console.error('Failed to load billing data', err);
+            toast.error('Failed to load billing summary');
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Extract unique vendors for the filter dropdown
-    const uniqueVendors = useMemo(() => {
-        const vendorMap = new Map();
-        allCompletedSheets.forEach(s => {
-            if (s.vendor_id || s.vendorId) {
-                vendorMap.set(s.vendor_id || s.vendorId, s.vendor_name || s.vendorName);
-            }
-        });
-        return Array.from(vendorMap.entries()).map(([id, name]) => ({ id, name }));
-    }, [allCompletedSheets]);
-
-    // Extract unique Job Numbers for the filter dropdown
-    const uniqueJobNos = useMemo(() => {
-        const jobSet = new Set();
-        allCompletedSheets.forEach(s => {
-            const sheetData = s.sheet_data || s.sheet || {};
-            const jobNo = sheetData.form_data?.jobNo || sheetData.formData?.jobNo;
-            if (jobNo) jobSet.add(jobNo);
-        });
-        return Array.from(jobSet).sort();
-    }, [allCompletedSheets]);
-
-    // Derived state: calculate billing summaries based on the selected filters
-    const billingData = useMemo(() => {
-        // Filter by date, vendor, and job no first
-        const filteredSheets = allCompletedSheets.filter(assignment => {
-            const sheetData = assignment.sheet_data || assignment.sheet || {};
-            const sheetDate = sheetData.form_data?.date || sheetData.formData?.date;
-            if (!sheetDate) return false; // Incomplete sheet data
-            
-            // Basic string comparison works for standard YYYY-MM-DD
-            if (startDate && sheetDate < startDate) return false;
-            if (endDate && sheetDate > endDate) return false;
-            if (selectedVendor !== 'all' && (assignment.vendor_id || assignment.vendorId) !== selectedVendor) return false;
-            if (selectedJobNo !== 'all' && (sheetData.form_data?.jobNo || sheetData.formData?.jobNo) !== selectedJobNo) return false;
-
-            return true;
-        });
-
-        // Now aggregate spot numbers by film size 
-        const filmSizeTotals = {};
-        let totalSpotsAll = 0;
-
-        filteredSheets.forEach(assignment => {
-            const allSections = assignment.resolvedSections || [];
-            allSections.forEach(item => {
-                (item.section.rows || []).forEach((row, rIdx) => {
-                    const vData = item.vDataMap?.[rIdx];
-                    if (vData && vData.filmSize && vData.filmSize.trim() !== '') {
-                        const size = vData.filmSize.trim();
-                        const spotCount = parseInt(vData.spotNo) || 0;
-                        filmSizeTotals[size] = (filmSizeTotals[size] || 0) + spotCount;
-                        totalSpotsAll += spotCount;
-                    }
-                });
-            });
-        });
-
-        return {
-            filmSizeTotals,
-            totalSpotsAll,
-            sheetCount: filteredSheets.length
-        };
-    }, [allCompletedSheets, startDate, endDate]);
-
     const exportToCSV = () => {
+        if (!billingResult.filmSizeTotals || Object.keys(billingResult.filmSizeTotals).length === 0) return;
+
         let csv = 'Film Size,Total Spot No.\n';
-        Object.entries(billingData.filmSizeTotals).forEach(([size, total]) => {
+        Object.entries(billingResult.filmSizeTotals).forEach(([size, total]) => {
             csv += `"${size}","${total}"\n`;
         });
-        csv += `"Grand Total","${billingData.totalSpotsAll}"\n`;
+        csv += `"Grand Total","${billingResult.totalSpotsAll}"\n`;
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -179,6 +67,13 @@ export default function CompanyBillingPage() {
         link.download = `billing_summary${dateRangeStr}.csv`;
         link.click();
         URL.revokeObjectURL(url);
+    };
+
+    const handleClearFilters = () => {
+        setStartDate('');
+        setEndDate('');
+        setSelectedVendor('all');
+        setSelectedJobNo('all');
     };
 
     return (
@@ -195,7 +90,7 @@ export default function CompanyBillingPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="text-lg">Filter Data</CardTitle>
-                    <CardDescription>Select a date range to filter the completed sheets calculated in the summary.</CardDescription>
+                    <CardDescription>Select a date range, vendor, or job number to calculate the summary.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col md:flex-row gap-4 items-end">
@@ -207,7 +102,7 @@ export default function CompanyBillingPage() {
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="pl-10"
+                                    className="pl-10 h-10"
                                 />
                                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             </div>
@@ -220,7 +115,7 @@ export default function CompanyBillingPage() {
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="pl-10"
+                                    className="pl-10 h-10"
                                 />
                                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             </div>
@@ -231,11 +126,11 @@ export default function CompanyBillingPage() {
                                 id="vendor"
                                 value={selectedVendor}
                                 onChange={(e) => setSelectedVendor(e.target.value)}
-                                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <option value="all">All Vendors</option>
-                                {uniqueVendors.map(v => (
-                                    <option key={v.id} value={v.id}>{v.name}</option>
+                                {billingResult.vendors.map(v => (
+                                    <option key={v.vendor_id} value={v.vendor_id}>{v.vendor_name}</option>
                                 ))}
                             </select>
                         </div>
@@ -245,10 +140,10 @@ export default function CompanyBillingPage() {
                                 id="jobNo"
                                 value={selectedJobNo}
                                 onChange={(e) => setSelectedJobNo(e.target.value)}
-                                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <option value="all">All Jobs</option>
-                                {uniqueJobNos.map(job => (
+                                {billingResult.jobNos.map(job => (
                                     <option key={job} value={job}>{job}</option>
                                 ))}
                             </select>
@@ -256,25 +151,34 @@ export default function CompanyBillingPage() {
                         <div className="flex-none">
                             <Button 
                                 variant="outline" 
-                                onClick={() => { setStartDate(''); setEndDate(''); setSelectedVendor('all'); setSelectedJobNo('all'); }}
-                                className="w-full md:w-auto"
+                                onClick={handleClearFilters}
+                                className="w-full md:w-auto h-10 border-slate-300 hover:bg-slate-50"
                             >
-                                Clear Filters
+                                Clear
                             </Button>
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className="relative overflow-hidden">
+                {loading && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-xs z-10 flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                            <p className="text-sm font-medium text-slate-600">Calculating...</p>
+                        </div>
+                    </div>
+                )}
+                
                 <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-slate-100">
                     <div>
                         <CardTitle className="text-xl">Film Size Calculations</CardTitle>
                         <CardDescription className="mt-1">
-                            Based on {billingData.sheetCount} completed sheet{billingData.sheetCount === 1 ? '' : 's'} in the selected range.
+                            Based on {billingResult.sheetCount} completed sheet{billingResult.sheetCount === 1 ? '' : 's'}.
                         </CardDescription>
                     </div>
-                    {Object.keys(billingData.filmSizeTotals).length > 0 && (
+                    {Object.keys(billingResult.filmSizeTotals).length > 0 && (
                         <div className="flex gap-2">
                             <Button 
                                 onClick={exportToCSV}
@@ -282,7 +186,7 @@ export default function CompanyBillingPage() {
                                 className="shrink-0 flex items-center gap-2 border-green-300 text-green-700 hover:bg-green-50"
                             >
                                 <Download className="h-4 w-4" />
-                                Export Excel
+                                <span className="hidden sm:inline">Export Excel</span>
                             </Button>
                             <Button 
                                 onClick={() => window.print()}
@@ -290,39 +194,41 @@ export default function CompanyBillingPage() {
                                 className="shrink-0 flex items-center gap-2 border-slate-300 hover:bg-slate-50"
                             >
                                 <Calculator className="h-4 w-4" />
-                                Print Report
+                                <span className="hidden sm:inline">Print Report</span>
                             </Button>
                         </div>
                     )}
                 </CardHeader>
                 <CardContent className="pt-6">
-                    {Object.keys(billingData.filmSizeTotals).length === 0 ? (
-                        <div className="py-12 text-center text-slate-500 bg-slate-50 rounded border border-dashed">
-                            <Calculator className="h-10 w-10 mx-auto text-slate-300 mb-2" />
-                            <p className="font-medium">No billing data found.</p>
-                            <p className="text-sm mt-1">Try adjusting your date filters or complete more jobs.</p>
+                    {Object.keys(billingResult.filmSizeTotals).length === 0 ? (
+                        <div className="py-20 text-center text-slate-500 bg-slate-50/50 rounded-lg border border-dashed border-slate-300">
+                            <Calculator className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+                            <p className="font-semibold text-slate-600">No billing data found.</p>
+                            <p className="text-sm mt-1 max-w-xs mx-auto">Try adjusting your filters or ensure your sheets are accepted and submitted by vendors.</p>
                         </div>
                     ) : (
-                        <table className="w-full border-collapse border border-slate-400 text-sm">
-                            <thead>
-                                <tr>
-                                    <th className="border border-slate-400 px-4 py-3 bg-blue-50 text-slate-700 text-left w-1/2 shadow-sm font-medium text-base">Film Size</th>
-                                    <th className="border border-slate-400 px-4 py-3 bg-blue-50 text-slate-700 text-right shadow-sm font-medium text-base">Total Spot No.</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {Object.entries(billingData.filmSizeTotals).map(([size, total]) => (
-                                    <tr key={size} className="border-b border-slate-300 hover:bg-slate-50 transition-colors">
-                                        <td className="border-r border-slate-400 px-4 py-3 bg-white font-medium text-slate-700 text-base">{size}</td>
-                                        <td className="border border-slate-400 px-4 py-3 bg-white font-bold text-slate-900 text-right text-base">{total}</td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse border border-slate-300 text-sm">
+                                <thead>
+                                    <tr>
+                                        <th className="border border-slate-300 px-6 py-4 bg-slate-100/80 text-slate-700 text-left w-1/2 shadow-xs font-semibold text-base uppercase tracking-wider">Film Size</th>
+                                        <th className="border border-slate-300 px-6 py-4 bg-slate-100/80 text-slate-700 text-right shadow-xs font-semibold text-base uppercase tracking-wider">Total Spot No.</th>
                                     </tr>
-                                ))}
-                                <tr className="border-t-2 border-slate-400">
-                                    <td className="border-r border-slate-400 px-4 py-3 bg-slate-100 font-bold text-slate-800 text-right text-base">Grand Total:</td>
-                                    <td className="border border-slate-400 px-4 py-3 bg-blue-100 font-bold text-blue-900 text-right text-xl">{billingData.totalSpotsAll}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {Object.entries(billingResult.filmSizeTotals).map(([size, total]) => (
+                                        <tr key={size} className="border-b border-slate-200 hover:bg-blue-50/30 transition-colors group">
+                                            <td className="border-r border-slate-300 px-6 py-4 bg-white font-medium text-slate-700 text-lg group-hover:text-blue-700 transition-colors">{size}</td>
+                                            <td className="border border-slate-300 px-6 py-4 bg-white font-bold text-slate-900 text-right text-lg">{total}</td>
+                                        </tr>
+                                    ))}
+                                    <tr className="border-t-4 border-slate-400">
+                                        <td className="border-r border-slate-300 px-6 py-5 bg-slate-100/50 font-bold text-slate-800 text-right text-base">Grand Total:</td>
+                                        <td className="border border-slate-300 px-6 py-5 bg-blue-100/40 font-black text-blue-900 text-right text-2xl">{billingResult.totalSpotsAll}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     )}
                 </CardContent>
             </Card>

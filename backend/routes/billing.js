@@ -14,8 +14,9 @@ router.get('/', async (req, res) => {
   try {
     // Get all completed/submitted assignments for this company
     let query = `
-      SELECT a.*, a.sheet_data->'formData'->>'date' as sheet_date,
-             a.sheet_data->'formData'->>'jobNo' as sheet_job_no
+      SELECT a.*, 
+             COALESCE(a.sheet_data->'formData'->>'date', a.sheet_data->'form_data'->>'date', '') as sheet_date,
+             COALESCE(a.sheet_data->'formData'->>'jobNo', a.sheet_data->'form_data'->>'jobNo', '') as sheet_job_no
       FROM assignments a
       WHERE a.company_id = $1
         AND a.submitted = TRUE
@@ -25,12 +26,12 @@ router.get('/', async (req, res) => {
     let paramIdx = 2;
 
     if (startDate) {
-      query += ` AND (a.sheet_data->'formData'->>'date') >= $${paramIdx}`;
+      query += ` AND COALESCE(a.sheet_data->'formData'->>'date', a.sheet_data->'form_data'->>'date', '') >= $${paramIdx}`;
       params.push(startDate);
       paramIdx++;
     }
     if (endDate) {
-      query += ` AND (a.sheet_data->'formData'->>'date') <= $${paramIdx}`;
+      query += ` AND COALESCE(a.sheet_data->'formData'->>'date', a.sheet_data->'form_data'->>'date', '') <= $${paramIdx}`;
       params.push(endDate);
       paramIdx++;
     }
@@ -40,7 +41,7 @@ router.get('/', async (req, res) => {
       paramIdx++;
     }
     if (jobNo && jobNo !== 'all') {
-      query += ` AND a.sheet_data->'formData'->>'jobNo' = $${paramIdx}`;
+      query += ` AND COALESCE(a.sheet_data->'formData'->>'jobNo', a.sheet_data->'form_data'->>'jobNo', '') = $${paramIdx}`;
       params.push(jobNo);
       paramIdx++;
     }
@@ -83,9 +84,9 @@ router.get('/', async (req, res) => {
     );
 
     const jobNosResult = await pool.query(
-      `SELECT DISTINCT sheet_data->'formData'->>'jobNo' as job_no FROM assignments
+      `SELECT DISTINCT COALESCE(sheet_data->'formData'->>'jobNo', sheet_data->'form_data'->>'jobNo', '') as job_no FROM assignments
        WHERE company_id = $1 AND submitted = TRUE AND status = 'accepted'
-       AND sheet_data->'formData'->>'jobNo' IS NOT NULL`,
+       AND (sheet_data->'formData'->>'jobNo' IS NOT NULL OR sheet_data->'form_data'->>'jobNo' IS NOT NULL)`,
       [req.user.companyId]
     );
 
