@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -75,39 +75,21 @@ export default function CreateOrderPage() {
   const handleSectionChange = (sectionIndex, field, value) => {
     setSections((prev) => {
       const updated = [...prev];
-      updated[sectionIndex] = { ...updated[sectionIndex], [field]: value };
+      const section = { ...updated[sectionIndex] };
+      const rows = [...(section.rows || [{ jobWeldDescription: '', remark: '' }])];
+      rows[0] = { ...rows[0], [field]: value };
+      section.rows = rows;
+      updated[sectionIndex] = section;
       return updated;
     });
   };
 
-  const handleRowChange = (sectionIndex, rowIndex, field, value) => {
-    setSections((prev) => {
-      const updated = [...prev];
-      const rows = [...updated[sectionIndex].rows];
-      rows[rowIndex] = { ...rows[rowIndex], [field]: value };
-      updated[sectionIndex] = { ...updated[sectionIndex], rows };
-      return updated;
-    });
-  };
-
-  const addRowToSection = (sectionIndex) => {
-    setSections((prev) => {
-      const updated = [...prev];
-      const rows = [...updated[sectionIndex].rows, { jobWeldDescription: '', remark: '' }];
-      updated[sectionIndex] = { ...updated[sectionIndex], rows };
-      return updated;
-    });
-  };
-
-  const removeRow = (sectionIndex, rowIndex) => {
-    setSections((prev) => {
-      const updated = [...prev];
-      if (updated[sectionIndex].rows.length <= 1) return prev;
-      const rows = updated[sectionIndex].rows.filter((_, i) => i !== rowIndex);
-      updated[sectionIndex] = { ...updated[sectionIndex], rows };
-      return updated;
-    });
-  };
+  // Auto-resize textarea to fit content
+  const autoResize = useCallback((el) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, []);
 
   const addSection = () => {
     setSections((prev) => {
@@ -375,13 +357,26 @@ export default function CreateOrderPage() {
 
       {/* ===== Detail Sections ===== */}
       {sections.map((section, sectionIndex) => (
-        <div key={section.id} className="relative">
+        <div key={section.id} className="relative group">
           <table className="w-full border-collapse border border-slate-400 text-sm">
             <thead>
-              {/* Serial No row */}
+              {/* Serial No row with delete button */}
               <tr>
-                <th colSpan={3} className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50">
-                  Serial No: {sectionIndex + 1}
+                <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <span>Serial No: {sectionIndex + 1}</span>
+                    {sections.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeSection(sectionIndex)}
+                        className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                        title="Delete this section"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </th>
               </tr>
               {/* Column headers */}
@@ -392,49 +387,33 @@ export default function CreateOrderPage() {
                 <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">
                   Remark
                 </th>
-                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100 w-10">
-                </th>
               </tr>
             </thead>
             <tbody>
-              {section.rows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  <td className="border border-slate-400 px-2 py-1">
-                    <Input value={row.jobWeldDescription} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'jobWeldDescription', e.target.value)} className={inputClass} />
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1">
-                    <Input value={row.remark || ''} onChange={(e) => handleRowChange(sectionIndex, rowIndex, 'remark', e.target.value)} className={inputClass} placeholder="Add a remark..." />
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1 text-center font-medium text-slate-700 bg-slate-50">
-                    {section.rows.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeRow(sectionIndex, rowIndex)}
-                        className="text-red-400 hover:text-red-600 p-0.5"
-                        title="Remove row"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              <tr>
+                <td className="border border-slate-400 px-2 py-1 align-top">
+                  <textarea
+                    value={section.rows?.[0]?.jobWeldDescription || ''}
+                    onChange={(e) => { handleSectionChange(sectionIndex, 'jobWeldDescription', e.target.value); autoResize(e.target); }}
+                    ref={(el) => { if (el && section.rows?.[0]?.jobWeldDescription) autoResize(el); }}
+                    className="w-full border-0 shadow-none rounded-none focus:outline-none focus:ring-0 px-1 py-1 resize-none overflow-hidden text-sm min-h-[2rem] leading-relaxed"
+                    rows={1}
+                    placeholder="Type here... press Enter for new line"
+                  />
+                </td>
+                <td className="border border-slate-400 px-2 py-1 align-top">
+                  <textarea
+                    value={section.rows?.[0]?.remark || ''}
+                    onChange={(e) => { handleSectionChange(sectionIndex, 'remark', e.target.value); autoResize(e.target); }}
+                    ref={(el) => { if (el && section.rows?.[0]?.remark) autoResize(el); }}
+                    className="w-full border-0 shadow-none rounded-none focus:outline-none focus:ring-0 px-1 py-1 resize-none overflow-hidden text-sm min-h-[2rem] leading-relaxed"
+                    rows={1}
+                    placeholder="Add a remark..."
+                  />
+                </td>
+              </tr>
             </tbody>
           </table>
-
-          {/* Add Row button */}
-          <div className="flex justify-end mt-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => addRowToSection(sectionIndex)}
-              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 text-xs h-7"
-            >
-              <PlusCircle className="h-3.5 w-3.5 mr-1" />
-              Add Row
-            </Button>
-          </div>
         </div>
       ))}
 

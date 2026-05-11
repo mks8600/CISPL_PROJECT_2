@@ -164,6 +164,57 @@ export default function VendorOrderProgressPage() {
         });
     };
 
+    const handleObservationLabel = (assignmentId, sIdx, rIdx, obsIdx, label) => {
+        setAcceptedOrders(prev => {
+            const updated = prev.map((a) => {
+                if (a.id === assignmentId) {
+                    const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
+                    newVendorData[sIdx][rIdx].observations[obsIdx].label = label;
+                    return { ...a, vendorData: newVendorData };
+                }
+                return a;
+            });
+            const changed = updated.find(a => a.id === assignmentId);
+            if (changed) {
+                debouncedSave(assignmentId, { 
+                    vendorData: changed.vendorData, 
+                    sectionStatuses: changed.sectionStatuses
+                });
+            }
+            return updated;
+        });
+    };
+
+    const handleSkipObservation = (assignmentId, sIdx, isSkipped) => {
+        setAcceptedOrders(prev => {
+            const updated = prev.map((a) => {
+                if (a.id === assignmentId) {
+                    const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
+                    if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
+                    
+                    const section = a.sheet.sections[sIdx];
+                    (section.rows || []).forEach((row, rIdx) => {
+                        if (!newVendorData[sIdx][rIdx]) {
+                            newVendorData[sIdx][rIdx] = { spotNo: '', filmSize: '', observations: [] };
+                        }
+                        newVendorData[sIdx][rIdx].skipObservation = isSkipped;
+                    });
+
+                    return { ...a, vendorData: newVendorData };
+                }
+                return a;
+            });
+            const changed = updated.find(a => a.id === assignmentId);
+            if (changed) {
+                debouncedSave(assignmentId, { 
+                    vendorData: changed.vendorData, 
+                    sectionStatuses: changed.sectionStatuses
+                });
+            }
+            return updated;
+        });
+    };
+
     const handleSubmitSheet = async (assignmentId) => {
         try {
             const assignment = acceptedOrders.find(a => a.id === assignmentId);
@@ -217,7 +268,7 @@ export default function VendorOrderProgressPage() {
                         let totalObs = 0;
                         let completedObs = 0;
                         assignment.sheet.sections.forEach((sec, sIdx) => {
-                            sec.rows.forEach((row, rIdx) => {
+                            (sec.rows || []).forEach((row, rIdx) => {
                                 const vData = assignment.vendorData?.[sIdx]?.[rIdx];
                                 if (vData?.observations) {
                                     totalObs += vData.observations.length;
@@ -306,44 +357,65 @@ export default function VendorOrderProgressPage() {
                                                             <thead>
                                                                 <tr>
                                                                     <th className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50 w-[15%]">Serial No:</th>
-                                                                    <th className="border border-slate-400 px-3 py-1.5 text-left font-medium">
-                                                                        <div className="flex items-center justify-between">
-                                                                            <span>{section.serialNo || '—'}</span>
-                                                                        </div>
+                                                                    <th colSpan={7} className="border border-slate-400 px-3 py-1.5 text-left font-medium">
+                                                                        <span>{section.serialNo || '—'}</span>
                                                                     </th>
                                                                 </tr>
                                                                 {/* Company Review Badge Row */}
                                                                 <tr>
-                                                                    <th colSpan={2} className={`border border-slate-400 px-3 py-1.5 text-left text-xs ${rStatus === 'ok' ? 'bg-green-50' :
+                                                                    <th colSpan={8} className={`border border-slate-400 px-3 py-1.5 text-left text-xs ${rStatus === 'ok' ? 'bg-green-50' :
                                                                         rStatus === 'retake' ? 'bg-orange-50' :
                                                                             rStatus === 'repair' ? 'bg-red-50' :
                                                                                 'bg-slate-50'
                                                                         }`}>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="font-medium text-slate-600">Company Review:</span>
-                                                                            {rStatus === 'ok' && (
-                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                                    <Check className="h-3 w-3" /> OK
-                                                                                </span>
-                                                                            )}
-                                                                            {rStatus === 'retake' && (
-                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                                                                    <RotateCcw className="h-3 w-3" /> Retake
-                                                                                </span>
-                                                                            )}
-                                                                            {rStatus === 'repair' && (
-                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                                                    <Wrench className="h-3 w-3" /> Repair
-                                                                                </span>
-                                                                            )}
-                                                                            {!rStatus && (
-                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
-                                                                                    Not Reviewed
-                                                                                </span>
-                                                                            )}
-                                                                            {rDesc && (rStatus === 'retake' || rStatus === 'repair') && (
-                                                                                <span className="text-slate-600">— {rDesc}</span>
-                                                                            )}
+                                                                        <div className="flex items-center justify-between w-full">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="font-medium text-slate-600">Company Review:</span>
+                                                                                {rStatus === 'ok' && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                                        <Check className="h-3 w-3" /> OK
+                                                                                    </span>
+                                                                                )}
+                                                                                {rStatus === 'retake' && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                                                                        <RotateCcw className="h-3 w-3" /> Retake
+                                                                                    </span>
+                                                                                )}
+                                                                                {rStatus === 'repair' && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                                        <Wrench className="h-3 w-3" /> Repair
+                                                                                    </span>
+                                                                                )}
+                                                                                {!rStatus && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                                                                                        Not Reviewed
+                                                                                    </span>
+                                                                                )}
+                                                                                {rDesc && (rStatus === 'retake' || rStatus === 'repair') && (
+                                                                                    <span className="text-slate-600">— {rDesc}</span>
+                                                                                )}
+                                                                            </div>
+                                                                            <button 
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    const isSkipped = assignment.vendorData?.[sIdx]?.[0]?.skipObservation;
+                                                                                    handleSkipObservation(assignment.id, sIdx, !isSkipped);
+                                                                                }}
+                                                                                className={`flex items-center gap-2 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all ${
+                                                                                    assignment.vendorData?.[sIdx]?.[0]?.skipObservation 
+                                                                                        ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200' 
+                                                                                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                                                                                }`}
+                                                                            >
+                                                                                <input 
+                                                                                    type="checkbox" 
+                                                                                    className="rounded border-slate-300 w-3 h-3 cursor-pointer accent-amber-600"
+                                                                                    checked={assignment.vendorData?.[sIdx]?.[0]?.skipObservation || false}
+                                                                                    readOnly
+                                                                                />
+                                                                                {assignment.vendorData?.[sIdx]?.[0]?.skipObservation ? 'OBSERVATION SKIPPED' : 'SKIP OBSERVATION'}
+                                                                            </button>
                                                                         </div>
                                                                     </th>
                                                                 </tr>
@@ -357,13 +429,14 @@ export default function VendorOrderProgressPage() {
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                {section.rows.map((row, rIdx) => {
+                                                                {(section.rows || []).map((row, rIdx) => {
                                                                     const rawVData = assignment.vendorData?.[sIdx]?.[rIdx] || {};
                                                                     const vData = { 
                                                                         spotNo: rawVData.spotNo || '', 
                                                                         filmSize: rawVData.filmSize || '', 
                                                                         observations: rawVData.observations || [],
-                                                                        remark: rawVData.remark
+                                                                        remark: rawVData.remark,
+                                                                        skipObservation: rawVData.skipObservation || false
                                                                     };
                                                                     const obsCount = Math.max(1, vData.observations.length);
 
@@ -407,11 +480,20 @@ export default function VendorOrderProgressPage() {
                                                                                 {/* 1st Observation */}
                                                                                 {vData.observations.length > 0 ? (
                                                                                     <>
-                                                                                        <td className="border border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 font-medium">{vData.observations[0].label}</td>
+                                                                                        <td className="border border-slate-400 p-0 align-top bg-white w-16">
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none ring-0 text-xs font-medium text-slate-800"
+                                                                                                value={vData.observations[0].label || ''}
+                                                                                                onChange={e => handleObservationLabel(assignment.id, sIdx, rIdx, 0, e.target.value)}
+                                                                                                placeholder="Obs."
+                                                                                            />
+                                                                                        </td>
                                                                                         <td className="border border-slate-400 p-0 align-top bg-white w-20">
                                                                                             <Select
                                                                                                 value={vData.observations[0].value || ''}
                                                                                                 onValueChange={val => handleObservationValue(assignment.id, sIdx, rIdx, 0, val)}
+                                                                                                disabled={vData.skipObservation}
                                                                                             >
                                                                                                 <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
                                                                                                     <SelectValue placeholder="—" />
@@ -420,6 +502,7 @@ export default function VendorOrderProgressPage() {
                                                                                                     <SelectItem value="OK">OK</SelectItem>
                                                                                                     <SelectItem value="R/S">R/S</SelectItem>
                                                                                                     <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                    <SelectItem value="Retake">Retake</SelectItem>
                                                                                                     <SelectItem value="Missing">Missing</SelectItem>
                                                                                                 </SelectContent>
                                                                                             </Select>
@@ -466,11 +549,20 @@ export default function VendorOrderProgressPage() {
                                                                                 const obsIdx = offsetIdx + 1;
                                                                                 return (
                                                                                     <tr key={obsIdx}>
-                                                                                        <td className="border border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 font-medium">{obs.label}</td>
+                                                                                        <td className="border border-slate-400 p-0 align-top bg-white w-16">
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none ring-0 text-xs font-medium text-slate-800"
+                                                                                                value={obs.label || ''}
+                                                                                                onChange={e => handleObservationLabel(assignment.id, sIdx, rIdx, obsIdx, e.target.value)}
+                                                                                                placeholder="Obs."
+                                                                                            />
+                                                                                        </td>
                                                                                         <td className="border border-slate-400 p-0 align-top bg-white w-20">
                                                                                             <Select
                                                                                                 value={obs.value || ''}
                                                                                                 onValueChange={val => handleObservationValue(assignment.id, sIdx, rIdx, obsIdx, val)}
+                                                                                                disabled={vData.skipObservation}
                                                                                             >
                                                                                                 <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
                                                                                                     <SelectValue placeholder="—" />
@@ -479,6 +571,7 @@ export default function VendorOrderProgressPage() {
                                                                                                     <SelectItem value="OK">OK</SelectItem>
                                                                                                     <SelectItem value="R/S">R/S</SelectItem>
                                                                                                     <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                    <SelectItem value="Retake">Retake</SelectItem>
                                                                                                     <SelectItem value="Missing">Missing</SelectItem>
                                                                                                 </SelectContent>
                                                                                             </Select>

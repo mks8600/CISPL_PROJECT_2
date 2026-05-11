@@ -81,8 +81,7 @@ function isChainFullyComplete(assignmentId, allAssignments) {
     
     const resolved = collectAllSections(assignmentId, allAssignments);
     if (resolved.length !== expectedLength) return false;
-    
-    return resolved.every((r) => r.reviewStatus === 'ok');
+    return resolved.every((r) => r.reviewStatus === 'ok' || r.reviewStatus === 'r/s' || r.reviewStatus === 'repair');
 }
 
 export default function CompanyCompletedWorkPage() {

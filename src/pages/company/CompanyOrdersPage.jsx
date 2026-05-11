@@ -368,10 +368,10 @@ export default function CompanyOrdersPage() {
                               <div key={i} className="text-sm text-slate-700 bg-white border rounded-md p-3 shadow-sm">
                                 <div className="font-medium flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
                                   <span>Serial No: {section.serialNo || '—'}</span>
-                                  <span className="text-xs font-normal text-slate-500">{section.rows.length} row(s)</span>
+                                  <span className="text-xs font-normal text-slate-500">{(section.rows || []).length} row(s)</span>
                                 </div>
                                 <div className="space-y-2">
-                                  {section.rows.map((row, rIdx) => (
+                                  {(section.rows || []).map((row, rIdx) => (
                                     <div key={rIdx} className="bg-amber-100 text-amber-900 px-3 py-2 rounded-md font-semibold border border-amber-200 shadow-sm flex flex-col gap-0.5">
                                       <div className="flex flex-col gap-2">
                                         <div>

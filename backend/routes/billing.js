@@ -51,26 +51,74 @@ router.get('/', async (req, res) => {
     const result = await pool.query(query, params);
     const assignments = result.rows;
 
-    // Aggregate film size totals
+    // Aggregate film size totals + status counts + detailed rows
     const filmSizeTotals = {};
+    const statusCounts = { OK: 0, Repair: 0, 'R/S': 0, Retake: 0, Missing: 0 };
     let totalSpotsAll = 0;
+    const detailedRows = [];
 
     for (const assignment of assignments) {
       const vendorData = assignment.vendor_data;
       if (!vendorData) continue;
+
+      const sheetData = assignment.sheet_data || {};
+      const formData = sheetData.formData || sheetData.form_data || {};
+      const sections = sheetData.sections || [];
 
       // vendorData is indexed by [sectionIdx][rowIdx]
       for (const sectionKey of Object.keys(vendorData)) {
         const sectionData = vendorData[sectionKey];
         if (!sectionData) continue;
 
+        const sIdx = parseInt(sectionKey);
+        const section = sections[sIdx] || {};
+        const serialNo = section.serialNo || '';
+
         for (const rowKey of Object.keys(sectionData)) {
           const rowData = sectionData[rowKey];
           if (rowData && rowData.filmSize && rowData.filmSize.trim() !== '') {
+            const rIdx = parseInt(rowKey);
+            const row = (section.rows || [])[rIdx] || {};
             const size = rowData.filmSize.trim();
             const spotCount = parseInt(rowData.spotNo) || 0;
             filmSizeTotals[size] = (filmSizeTotals[size] || 0) + spotCount;
             totalSpotsAll += spotCount;
+
+            // Build weld identification string: CISPL/JOB NO./TAG NO./CS/W NO/THK
+            const weldId = row.jobWeldDescription || row.description || row.weldId || row.drawingNo || '—';
+
+            // Observations for this row
+            const obsArray = rowData.observations || [];
+            const observations = [];
+            if (obsArray.length > 0) {
+              for (const obs of obsArray) {
+                const status = obs.companyValue || 'OK';
+                statusCounts[status] = (statusCounts[status] || 0) + 1;
+                observations.push({
+                  label: obs.label || '',
+                  vendorValue: obs.value || '',
+                  companyValue: status,
+                });
+              }
+            } else {
+              statusCounts['OK'] = (statusCounts['OK'] || 0) + spotCount;
+              // Create placeholder observations
+              for (let i = 0; i < spotCount; i++) {
+                observations.push({ label: `${i}`, vendorValue: '', companyValue: 'OK' });
+              }
+            }
+
+            detailedRows.push({
+              date: formData.date || '',
+              jobNo: formData.jobNo || '',
+              rsNo: formData.rsNo || '',
+              serialNo,
+              weldIdentification: weldId,
+              spotNo: spotCount,
+              filmSize: size,
+              observations,
+              vendorName: assignment.vendor_name || '',
+            });
           }
         }
       }
@@ -93,6 +141,8 @@ router.get('/', async (req, res) => {
     res.json({
       filmSizeTotals,
       totalSpotsAll,
+      statusCounts,
+      detailedRows,
       sheetCount: assignments.length,
       vendors: vendorsResult.rows,
       jobNos: jobNosResult.rows.map(r => r.job_no).filter(Boolean),

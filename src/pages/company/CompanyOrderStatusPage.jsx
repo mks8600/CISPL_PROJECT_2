@@ -131,7 +131,7 @@ export default function CompanyOrderStatusPage() {
         for (let sIdx = 0; sIdx < sections.length; sIdx++) {
             if (sectionStatuses[sIdx] === 'reassigned') continue;
             const section = sections[sIdx];
-            for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
+            for (let rIdx = 0; rIdx < (section.rows || []).length; rIdx++) {
                 const vDataArr = assignment.vendor_data || assignment.vendorData;
                 const vData = (vDataArr && vDataArr[sIdx] && vDataArr[sIdx][rIdx]) || {};
                 const obsArray = vData.observations || [];
@@ -158,27 +158,32 @@ export default function CompanyOrderStatusPage() {
             if (sectionStatuses[sIdx] === 'reassigned') continue;
 
             const section = sections[sIdx];
-            let sectionOk = true;
+            let hasRetake = false;
+            let hasRepair = false;
+            let hasRS = false;
+            let hasMissing = false;
 
-            for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
+            for (let rIdx = 0; rIdx < (section.rows || []).length; rIdx++) {
                 const vDataArr = assignment.vendor_data || assignment.vendorData;
                 const vData = (vDataArr && vDataArr[sIdx] && vDataArr[sIdx][rIdx]) || {};
                 const obsArray = vData.observations || [];
                 for (const obs of obsArray) {
-                    if (obs.companyValue !== 'OK') {
-                        sectionOk = false;
-                        break;
-                    }
+                    if (obs.companyValue === 'Retake') hasRetake = true;
+                    if (obs.companyValue === 'Repair') hasRepair = true;
+                    if (obs.companyValue === 'R/S') hasRS = true;
+                    if (obs.companyValue === 'Missing') hasMissing = true;
                 }
-                if (!sectionOk) break;
             }
 
-            if (sectionOk) {
+            if (hasRetake || hasMissing) {
+                newReviewStatuses[sIdx] = hasRetake ? 'retake' : 'missing';
+                newReviewDescriptions[sIdx] = `Company observation indicated ${hasRetake ? 'Retake' : 'Missing'}.`;
+            } else if (hasRepair || hasRS) {
+                newReviewStatuses[sIdx] = hasRepair ? 'repair' : 'r/s';
+                newReviewDescriptions[sIdx] = `Company observation indicated ${hasRepair ? 'Repair' : 'R/S'}.`;
+            } else {
                 newReviewStatuses[sIdx] = 'ok';
                 newReviewDescriptions[sIdx] = '';
-            } else {
-                newReviewStatuses[sIdx] = 'repair';
-                newReviewDescriptions[sIdx] = 'Company observation indicated non-OK values (e.g., Repair, R/S, Missing).';
             }
         }
 
@@ -319,7 +324,7 @@ export default function CompanyOrderStatusPage() {
                                                                 <div className="flex items-center gap-3">
                                                                     <span className="text-sm font-semibold text-slate-700">#{sIdx + 1}</span>
                                                                     <span className="text-sm font-medium text-slate-800">Serial No: {section.serialNo || '—'}</span>
-                                                                    <span className="text-xs text-slate-500">({section.rows.map(row => row.spotNos).join(', ') || '—'})</span>
+                                                                    <span className="text-xs text-slate-500">({(section.rows || []).map(row => row.spotNos).join(', ') || '—'})</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
                                                                     {sStatus === 'complete' ? (
@@ -344,7 +349,7 @@ export default function CompanyOrderStatusPage() {
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
-                                                                    {section.rows.map((row, rIdx) => {
+                                                                    {(section.rows || []).map((row, rIdx) => {
                                                                         const vDataArr = assignment.vendor_data || assignment.vendorData;
                                                                         const vData = (vDataArr && vDataArr[sIdx] && vDataArr[sIdx][rIdx]) || { spotNo: '', filmSize: '', observations: [], remark: '' };
                                                                         const obsCount = Math.max(1, (vData.observations || []).length);
@@ -384,6 +389,7 @@ export default function CompanyOrderStatusPage() {
                                                                                                         <SelectItem value="OK">OK</SelectItem>
                                                                                                         <SelectItem value="R/S">R/S</SelectItem>
                                                                                                         <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                        <SelectItem value="Retake">Retake</SelectItem>
                                                                                                         <SelectItem value="Missing">Missing</SelectItem>
                                                                                                     </SelectContent>
                                                                                                 </Select>
@@ -428,6 +434,7 @@ export default function CompanyOrderStatusPage() {
                                                                                                     <SelectItem value="OK">OK</SelectItem>
                                                                                                     <SelectItem value="R/S">R/S</SelectItem>
                                                                                                     <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                    <SelectItem value="Retake">Retake</SelectItem>
                                                                                                     <SelectItem value="Missing">Missing</SelectItem>
                                                                                                 </SelectContent>
                                                                                             </Select>

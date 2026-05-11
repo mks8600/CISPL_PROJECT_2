@@ -45,7 +45,7 @@ export default function CompanyPendingWorkPage() {
                 const reviewStatuses = a.review_statuses || a.reviewStatuses || (sheetData.sections || []).map(() => null);
                 return statuses.some((s, i) => {
                     if (s === 'pending' || s === 'reassigned') return true;
-                    if (reviewStatuses[i] === 'retake' || reviewStatuses[i] === 'repair') return true;
+                    if (reviewStatuses[i] === 'retake' || reviewStatuses[i] === 'missing') return true;
                     return false;
                 });
             });
@@ -261,7 +261,7 @@ export default function CompanyPendingWorkPage() {
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                {section.rows.map((row, rIdx) => {
+                                                                {(section.rows || []).map((row, rIdx) => {
                                                                     const vDataArr = assignment.vendor_data || assignment.vendorData;
                                                                     const vData = (vDataArr && vDataArr[sIdx] && vDataArr[sIdx][rIdx]) || { spotNo: '', filmSize: '', observations: [], remark: '' };
                                                                     const obsCount = Math.max(1, (vData.observations || []).length);
