@@ -39,6 +39,10 @@ export default function CompanyPendingWorkPage() {
             setVendors(vendorsData);
 
             const withPending = all.filter((a) => {
+                // Include revision sheets that need vendor assignment (no vendor yet)
+                const isRevisionNeedingVendor = a.reassigned_from && !a.vendor_id && !a.submitted;
+                if (isRevisionNeedingVendor) return true;
+
                 if (a.status !== 'accepted' || !a.submitted) return false;
                 const sheetData = a.sheet_data || a.sheet || {};
                 const statuses = a.section_statuses || a.sectionStatuses || (sheetData.sections || []).map(() => 'pending');
@@ -79,6 +83,27 @@ export default function CompanyPendingWorkPage() {
         if (!original) return;
 
         const sheetData = original.sheet_data || original.sheet || {};
+
+        // Revision sheet without vendor — assign vendor directly
+        const isRevisionWithoutVendor = original.reassigned_from && !original.vendor_id && !original.submitted;
+        if (isRevisionWithoutVendor) {
+            try {
+                await assignmentsApi.reassign(assignmentId, {
+                    vendorId: vendor.id,
+                    vendorName: vendor.vendor_name || vendor.vendorName,
+                    vendorNo: vendor.vendor_no || vendor.vendorNo,
+                    sectionIndices: (sheetData.sections || []).map((_, i) => i),
+                    sheetData,
+                });
+                setReassignVendor((prev) => ({ ...prev, [assignmentId]: '' }));
+                loadData();
+                toast.success(`Revision sheet assigned to ${vendor.vendor_name || vendor.vendorName}!`);
+            } catch (err) {
+                toast.error(err.message || 'Failed to assign vendor to revision sheet');
+            }
+            return;
+        }
+
         const sectionStatuses = original.section_statuses || original.sectionStatuses || (sheetData.sections || []).map(() => 'pending');
         const reviewStatuses = original.review_statuses || original.reviewStatuses || (sheetData.sections || []).map(() => null);
 
@@ -172,8 +197,9 @@ export default function CompanyPendingWorkPage() {
                                                 <span className="font-normal text-slate-500 ml-2">— {formatDate(fd.date)}</span>
                                             </p>
                                             <p className="text-sm text-slate-500">
-                                                Vendor: <span className="font-medium text-slate-700">{assignment.vendor_name || assignment.vendorName}</span>
+                                                Vendor: <span className={`font-medium ${(assignment.vendor_name || assignment.vendorName) ? 'text-slate-700' : 'text-red-600'}`}>{assignment.vendor_name || assignment.vendorName || 'Not Assigned'}</span>
                                                 {fd.rsNo && <span className="ml-2">• RS: {fd.rsNo}</span>}
+                                                {assignment.reassigned_from && !assignment.vendor_id && <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 uppercase">Revision</span>}
                                             </p>
                                         </div>
                                     </div>
@@ -256,7 +282,8 @@ export default function CompanyPendingWorkPage() {
                                                                     <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-left w-[25%] text-slate-700 shadow-sm">WELD IDENTIFICATION</th>
                                                                     <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-16 text-slate-700 shadow-sm">SPOT NO</th>
                                                                     <th className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center w-20 text-slate-700 shadow-sm">FILM SIZE</th>
-                                                                    <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">OBSERVATION</th>
+                                                                    <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">VENDOR OBSERVATION</th>
+                                                                    <th colSpan="2" className="border-y border-r border-slate-400 px-2 py-1 bg-slate-100 text-center text-slate-700 shadow-sm">COMPANY OBSERVATION</th>
                                                                     <th className="border-y border-slate-400 px-2 py-1 bg-slate-100 text-left text-slate-700 shadow-sm">REMARKS</th>
                                                                 </tr>
                                                             </thead>
@@ -286,12 +313,22 @@ export default function CompanyPendingWorkPage() {
                                                                                             {vData.observations[0].value || '—'}
                                                                                             {vData.observations[0].status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
                                                                                         </td>
+                                                                                        <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium border-b border-slate-200">{vData.observations[0].label}</td>
+                                                                                        <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-bold text-slate-900 border-b border-slate-200">
+                                                                                            {vData.observations[0].companyValue ? (
+                                                                                                <span className={vData.observations[0].companyValue === 'Retake' || vData.observations[0].companyValue === 'Missing' ? 'text-red-600' : ''}>
+                                                                                                    {vData.observations[0].companyValue}
+                                                                                                </span>
+                                                                                            ) : '—'}
+                                                                                        </td>
                                                                                         <td rowSpan={obsCount} className="p-2 text-slate-700 whitespace-pre-wrap align-top bg-white w-48 font-medium">
                                                                                             {vData.remark !== undefined ? vData.remark : (row.remark || '—')}
                                                                                         </td>
                                                                                     </>
                                                                                 ) : (
                                                                                     <>
+                                                                                        <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 text-slate-400 text-xs">N/A</td>
+                                                                                        <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-20 text-slate-400 text-xs">N/A</td>
                                                                                         <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-12 text-slate-400 text-xs">N/A</td>
                                                                                         <td className="border-r border-slate-400 px-2 py-1 text-center bg-slate-50 w-20 text-slate-400 text-xs">N/A</td>
                                                                                         <td rowSpan={obsCount} className="p-2 text-slate-500 whitespace-pre-wrap align-top bg-white w-48 italic">
@@ -307,6 +344,14 @@ export default function CompanyPendingWorkPage() {
                                                                                     <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-medium text-slate-800">
                                                                                         {obs.value || '—'}
                                                                                         {obs.status === 'complete' && <CheckCircle2 className="inline ml-1 h-3 w-3 text-green-500" />}
+                                                                                    </td>
+                                                                                    <td className="border-r border-slate-400 px-2 py-1.5 text-center bg-slate-100/50 w-12 font-medium">{obs.label}</td>
+                                                                                    <td className="border-r border-slate-400 px-2 py-1.5 text-center w-20 bg-white font-bold text-slate-900">
+                                                                                        {obs.companyValue ? (
+                                                                                            <span className={obs.companyValue === 'Retake' || obs.companyValue === 'Missing' ? 'text-red-600' : ''}>
+                                                                                                {obs.companyValue}
+                                                                                            </span>
+                                                                                        ) : '—'}
                                                                                     </td>
                                                                                 </tr>
                                                                             ))}

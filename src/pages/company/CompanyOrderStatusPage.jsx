@@ -128,6 +128,7 @@ export default function CompanyOrderStatusPage() {
 
         // First, validate that all vendor observations have a company value selected
         let hasEmpty = false;
+        let hasRetakeOrMissing = false;
         for (let sIdx = 0; sIdx < sections.length; sIdx++) {
             if (sectionStatuses[sIdx] === 'reassigned') continue;
             const section = sections[sIdx];
@@ -140,6 +141,9 @@ export default function CompanyOrderStatusPage() {
                         hasEmpty = true;
                         break;
                     }
+                    if (obs.companyValue === 'Retake' || obs.companyValue === 'Missing') {
+                        hasRetakeOrMissing = true;
+                    }
                 }
                 if (hasEmpty) break;
             }
@@ -151,50 +155,30 @@ export default function CompanyOrderStatusPage() {
             return;
         }
 
-        const newReviewStatuses = assignment.review_statuses || assignment.reviewStatuses ? [...(assignment.review_statuses || assignment.reviewStatuses)] : sections.map(() => null);
-        const newReviewDescriptions = assignment.review_descriptions || assignment.reviewDescriptions ? [...(assignment.review_descriptions || assignment.reviewDescriptions)] : sections.map(() => '');
-
-        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
-            if (sectionStatuses[sIdx] === 'reassigned') continue;
-
-            const section = sections[sIdx];
-            let hasRetake = false;
-            let hasRepair = false;
-            let hasRS = false;
-            let hasMissing = false;
-
-            for (let rIdx = 0; rIdx < (section.rows || []).length; rIdx++) {
-                const vDataArr = assignment.vendor_data || assignment.vendorData;
-                const vData = (vDataArr && vDataArr[sIdx] && vDataArr[sIdx][rIdx]) || {};
-                const obsArray = vData.observations || [];
-                for (const obs of obsArray) {
-                    if (obs.companyValue === 'Retake') hasRetake = true;
-                    if (obs.companyValue === 'Repair') hasRepair = true;
-                    if (obs.companyValue === 'R/S') hasRS = true;
-                    if (obs.companyValue === 'Missing') hasMissing = true;
-                }
-            }
-
-            if (hasRetake || hasMissing) {
-                newReviewStatuses[sIdx] = hasRetake ? 'retake' : 'missing';
-                newReviewDescriptions[sIdx] = `Company observation indicated ${hasRetake ? 'Retake' : 'Missing'}.`;
-            } else if (hasRepair || hasRS) {
-                newReviewStatuses[sIdx] = hasRepair ? 'repair' : 'r/s';
-                newReviewDescriptions[sIdx] = `Company observation indicated ${hasRepair ? 'Repair' : 'R/S'}.`;
-            } else {
-                newReviewStatuses[sIdx] = 'ok';
-                newReviewDescriptions[sIdx] = '';
-            }
+        // If there are Retake/Missing spots, confirm with the user
+        if (hasRetakeOrMissing) {
+            const confirmed = window.confirm(
+                "Some spots are marked as Retake/Missing. These spots will be extracted into a new revision sheet and sent to Pending Work.\n\nThe remaining OK/Repair/R/S spots will move to Completed Works.\n\nProceed?"
+            );
+            if (!confirmed) return;
         }
 
+        const currentReviewStatuses = assignment.review_statuses || assignment.reviewStatuses || sections.map(() => null);
+        const currentReviewDescriptions = assignment.review_descriptions || assignment.reviewDescriptions || sections.map(() => '');
+
         try {
-            await assignmentsApi.review(assignment.id, {
+            const result = await assignmentsApi.completeWithRevision(assignment.id, {
                 vendorData: assignment.vendor_data || assignment.vendorData,
-                reviewStatuses: newReviewStatuses,
-                reviewDescriptions: newReviewDescriptions
+                reviewStatuses: currentReviewStatuses,
+                reviewDescriptions: currentReviewDescriptions,
             });
             loadData();
-            toast.success("Review processing complete!");
+            if (result.revisionCreated) {
+                const revFormData = result.revision?.sheet_data?.formData || result.revision?.sheet_data?.form_data || {};
+                toast.success(`Review complete! Revision sheet created with RS No: ${revFormData.rsNo || 'N/A'}. Check Pending Work.`, { duration: 6000 });
+            } else {
+                toast.success("Review processing complete!");
+            }
         } catch (err) {
             toast.error(err.message || 'Failed to complete review');
         }

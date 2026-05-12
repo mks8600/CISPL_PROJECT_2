@@ -85,6 +85,7 @@ export const assignmentsApi = {
   delete: (id) => api.delete(`/assignments/${id}`),
   review: (id, data) => api.put(`/assignments/${id}/review`, data),
   reassign: (id, data) => api.put(`/assignments/${id}/reassign`, data),
+  completeWithRevision: (id, data) => api.put(`/assignments/${id}/complete-with-revision`, data),
 };
 
 export const jobsApi = {
