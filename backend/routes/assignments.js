@@ -108,7 +108,7 @@ router.put('/:id/review', async (req, res) => {
 
 // PUT /api/assignments/:id/reassign — reassign to new vendor
 router.put('/:id/reassign', async (req, res) => {
-  const { vendorId, vendorName, vendorNo, sectionIndices, sheetData } = req.body;
+  const { vendorId, vendorName, vendorNo, sectionIndices, sheetData, vendorData } = req.body;
 
   try {
     const current = await pool.query(
@@ -131,10 +131,13 @@ router.put('/:id/reassign', async (req, res) => {
     const newSections = sheetData.sections || [];
     const newStatuses = newSections.map(() => 'pending');
 
+    // Carry over vendor_data if provided (e.g. revision sheets with pre-filled spot/film data)
+    const carryVendorData = vendorData || assignment.vendor_data || null;
+
     const result = await pool.query(
-      `INSERT INTO assignments (company_id, company_name, vendor_id, vendor_name, vendor_no, sheet_data, section_statuses, reassigned_from)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [req.user.companyId, req.user.companyName, vendorId, vendorName, vendorNo, sheetData, JSON.stringify(newStatuses), req.params.id]
+      `INSERT INTO assignments (company_id, company_name, vendor_id, vendor_name, vendor_no, sheet_data, section_statuses, vendor_data, reassigned_from)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [req.user.companyId, req.user.companyName, vendorId, vendorName, vendorNo, sheetData, JSON.stringify(newStatuses), carryVendorData ? JSON.stringify(carryVendorData) : null, req.params.id]
     );
 
     res.status(201).json(result.rows[0]);

@@ -305,7 +305,7 @@ export default function CompanyBillingPage() {
                                                                 <td rowSpan={obsCount} className="border-r border-slate-300 px-3 py-2 text-slate-700 font-medium align-top">{row.serialNo || '—'}</td>
                                                                 <td rowSpan={obsCount} className="border-r border-slate-300 px-3 py-2 text-slate-700 font-medium align-top text-xs">{row.jobNo || '—'}</td>
                                                                 <td rowSpan={obsCount} className="border-r border-slate-300 px-3 py-2 text-slate-700 font-medium align-top text-xs">{row.rsNo || '—'}</td>
-                                                                <td rowSpan={obsCount} className="border-r border-slate-300 px-3 py-2 text-slate-800 font-medium align-top text-xs">{row.weldIdentification}</td>
+                                                                <td rowSpan={obsCount} className="border-r border-slate-300 px-3 py-2 text-slate-800 font-medium align-top text-xs break-all whitespace-pre-wrap min-w-[100px] max-w-[200px]">{row.weldIdentification}</td>
                                                                 <td rowSpan={obsCount} className="border-r border-slate-300 px-3 py-2 text-center font-bold text-slate-900 align-top">{row.spotNo}</td>
                                                                 <td rowSpan={obsCount} className="border-r border-slate-300 px-3 py-2 text-center font-medium text-slate-700 align-top">{row.filmSize}</td>
                                                             </>)}
@@ -318,7 +318,7 @@ export default function CompanyBillingPage() {
                                                             <td className="border-r border-slate-300 px-3 py-2 text-slate-700 font-medium">{row.serialNo || '—'}</td>
                                                             <td className="border-r border-slate-300 px-3 py-2 text-slate-700 font-medium text-xs">{row.jobNo || '—'}</td>
                                                             <td className="border-r border-slate-300 px-3 py-2 text-slate-700 font-medium text-xs">{row.rsNo || '—'}</td>
-                                                            <td className="border-r border-slate-300 px-3 py-2 text-slate-800 font-medium text-xs">{row.weldIdentification}</td>
+                                                            <td className="border-r border-slate-300 px-3 py-2 text-slate-800 font-medium text-xs break-all whitespace-pre-wrap min-w-[100px] max-w-[200px]">{row.weldIdentification}</td>
                                                             <td className="border-r border-slate-300 px-3 py-2 text-center font-bold text-slate-900">{row.spotNo}</td>
                                                             <td className="border-r border-slate-300 px-3 py-2 text-center font-medium text-slate-700">{row.filmSize}</td>
                                                             <td colSpan={2} className="px-3 py-2 text-center text-xs text-slate-400">—</td>

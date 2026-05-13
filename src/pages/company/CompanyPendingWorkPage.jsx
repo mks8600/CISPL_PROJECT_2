@@ -43,15 +43,25 @@ export default function CompanyPendingWorkPage() {
                 const isRevisionNeedingVendor = a.reassigned_from && !a.vendor_id && !a.submitted;
                 if (isRevisionNeedingVendor) return true;
 
-                if (a.status !== 'accepted' || !a.submitted) return false;
+                if (a.status !== 'accepted') return false;
                 const sheetData = a.sheet_data || a.sheet || {};
-                const statuses = a.section_statuses || a.sectionStatuses || (sheetData.sections || []).map(() => 'pending');
-                const reviewStatuses = a.review_statuses || a.reviewStatuses || (sheetData.sections || []).map(() => null);
-                return statuses.some((s, i) => {
-                    if (s === 'pending' || s === 'reassigned') return true;
-                    if (reviewStatuses[i] === 'retake' || reviewStatuses[i] === 'missing') return true;
-                    return false;
-                });
+                const sections = sheetData.sections || [];
+                const statuses = a.section_statuses || a.sectionStatuses || sections.map(() => 'pending');
+                const reviewStatuses = a.review_statuses || a.reviewStatuses || sections.map(() => null);
+
+                // If submitted, only show if it has sections reviewed as retake/missing
+                // (not yet reassigned). Submitted sheets with 'complete' sections
+                // belong in Order Status for company review, NOT here.
+                if (a.submitted) {
+                    return statuses.some((s, i) => {
+                        if (s === 'reassigned') return false;
+                        if (reviewStatuses[i] === 'retake' || reviewStatuses[i] === 'missing') return true;
+                        return false;
+                    });
+                }
+
+                // Not submitted — show if it has truly pending (not yet worked on) sections
+                return statuses.some((s) => s === 'pending');
             });
             setPendingItems(withPending);
         } catch (err) {
@@ -94,6 +104,7 @@ export default function CompanyPendingWorkPage() {
                     vendorNo: vendor.vendor_no || vendor.vendorNo,
                     sectionIndices: (sheetData.sections || []).map((_, i) => i),
                     sheetData,
+                    vendorData: original.vendor_data || original.vendorData || null,
                 });
                 setReassignVendor((prev) => ({ ...prev, [assignmentId]: '' }));
                 loadData();
@@ -296,7 +307,7 @@ export default function CompanyPendingWorkPage() {
                                                                     return (
                                                                         <React.Fragment key={rIdx}>
                                                                             <tr className="border-b border-slate-300">
-                                                                                <td rowSpan={obsCount} className="border-r border-slate-400 px-2 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">
+                                                                                <td rowSpan={obsCount} className="border-r border-slate-400 px-2 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-all whitespace-pre-wrap min-w-[150px] max-w-[200px] border-l-4 border-l-blue-500">
                                                                                     {row.jobWeldDescription || '—'}
                                                                                 </td>
                                                                                 <td rowSpan={obsCount} className="border-r border-slate-400 p-2 text-center align-middle font-medium bg-slate-50">

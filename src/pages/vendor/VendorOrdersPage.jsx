@@ -228,7 +228,7 @@ export default function VendorOrdersPage() {
                                                                     <tbody>
                                                                         {(section.rows || []).map((row, rIdx) => (
                                                                             <tr key={rIdx}>
-                                                                                <td className="border border-slate-400 px-3 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">{row.jobWeldDescription || '—'}</td>
+                                                                                <td className="border border-slate-400 px-3 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-all whitespace-pre-wrap min-w-[150px] max-w-[200px] border-l-4 border-l-blue-500">{row.jobWeldDescription || '—'}</td>
                                                                                 <td className="border border-slate-400 px-3 py-1.5">{row.remark || '—'}</td>
                                                                             </tr>
                                                                         ))}

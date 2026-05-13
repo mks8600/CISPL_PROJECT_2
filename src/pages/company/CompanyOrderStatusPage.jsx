@@ -341,7 +341,7 @@ export default function CompanyOrderStatusPage() {
                                                                         return (
                                                                             <React.Fragment key={rIdx}>
                                                                                 <tr className="border-b border-slate-300">
-                                                                                    <td rowSpan={obsCount} className="border-r border-slate-400 px-2 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">
+                                                                                    <td rowSpan={obsCount} className="border-r border-slate-400 px-2 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-all whitespace-pre-wrap min-w-[150px] max-w-[200px] border-l-4 border-l-blue-500">
                                                                                         {row.jobWeldDescription || '—'}
                                                                                     </td>
                                                                                     <td rowSpan={obsCount} className="border-r border-slate-400 p-2 text-center align-middle font-medium bg-slate-50">

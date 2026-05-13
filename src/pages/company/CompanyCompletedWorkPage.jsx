@@ -15,75 +15,6 @@ function formatDate(dateStr) {
     }
 }
 
-/**
- * Collect all resolved sections for an assignment, including sections
- * that were reassigned and completed in child assignments.
- * Returns an array of { section, reviewStatus } for all fully-resolved sections.
- * Deduplicates by serialNo to handle complex reassignment chains.
- */
-function collectAllSections(assignmentId, allAssignments) {
-    const result = [];
-    const seenSerials = new Set();
-
-    function traverse(currentId) {
-        const assignment = allAssignments.find((a) => a.id === currentId);
-        if (!assignment) return;
-
-        const sheetData = assignment.sheet_data || assignment.sheet || {};
-        const sections = sheetData.sections || [];
-        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || sections.map(() => 'pending');
-        const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || sections.map(() => null);
-
-        sections.forEach((section, idx) => {
-            if (sectionStatuses[idx] === 'reassigned') {
-                return; // Skip, will get it from child
-            }
-            // Only add if we haven't seen this serial number yet
-            if (section.serialNo && !seenSerials.has(section.serialNo)) {
-                seenSerials.add(section.serialNo);
-                const vDataArr = assignment.vendor_data || assignment.vendorData;
-                result.push({ 
-                    section, 
-                    reviewStatus: reviewStatuses[idx],
-                    vDataMap: vDataArr ? vDataArr[idx] : null
-                });
-            }
-        });
-
-        // Traverse children
-        const children = allAssignments.filter((a) => a.reassigned_from === currentId || a.reassignedFrom === currentId);
-        for (const child of children) {
-            traverse(child.id);
-        }
-    }
-
-    traverse(assignmentId);
-    
-    // Sort by serial number so they appear in order (e.g., 1, 2, 3)
-    return result.sort((a, b) => {
-        const numA = parseInt(a.section.serialNo) || 0;
-        const numB = parseInt(b.section.serialNo) || 0;
-        return numA - numB;
-    });
-}
-
-/**
- * Check if an entire assignment chain (original + all descendants) is fully complete.
- * All sections across all assignments must be complete + reviewed OK.
- */
-function isChainFullyComplete(assignmentId, allAssignments) {
-    const assignment = allAssignments.find((a) => a.id === assignmentId);
-    if (!assignment) return false;
-    
-    // The total expected sections is the number of sections on the original root sheet
-    const sheetData = assignment.sheet_data || assignment.sheet || {};
-    const expectedLength = (sheetData.sections || []).length;
-    
-    const resolved = collectAllSections(assignmentId, allAssignments);
-    if (resolved.length !== expectedLength) return false;
-    return resolved.every((r) => r.reviewStatus === 'ok' || r.reviewStatus === 'r/s' || r.reviewStatus === 'repair');
-}
-
 export default function CompanyCompletedWorkPage() {
     const { user } = useAuth();
     const [completedItems, setCompletedItems] = useState([]);
@@ -136,22 +67,55 @@ export default function CompanyCompletedWorkPage() {
         try {
             const all = await assignmentsApi.list();
 
-            // Find "root" assignments (ones that are NOT reassigned from another)
-            // that have their entire chain fully complete
-            const completed = [];
-            const rootAssignments = all.filter((a) => !a.reassigned_from && !a.reassignedFrom && a.status === 'accepted' && a.submitted);
-
-        for (const root of rootAssignments) {
-            if (isChainFullyComplete(root.id, all)) {
-                const allSections = collectAllSections(root.id, all);
-                completed.push({
-                    ...root,
-                    resolvedSections: allSections,
+            const completed = all.filter(a => {
+                if (a.status !== 'accepted' || !a.submitted) return false;
+                
+                const sheetData = a.sheet_data || a.sheet || {};
+                const sections = sheetData.sections || [];
+                const sectionStatuses = a.section_statuses || a.sectionStatuses || sections.map(() => 'pending');
+                const reviewStatuses = a.review_statuses || a.reviewStatuses || sections.map(() => null);
+                
+                const activeIndices = [];
+                for (let i = 0; i < sections.length; i++) {
+                    if (sectionStatuses[i] !== 'reassigned') activeIndices.push(i);
+                }
+                
+                if (activeIndices.length === 0) return false; // Husk
+                
+                // Must have all active sections fully reviewed as OK, R/S, or Repair
+                const allReviewed = activeIndices.every(i => {
+                    const rs = reviewStatuses[i];
+                    return rs === 'ok' || rs === 'r/s' || rs === 'repair';
                 });
-            }
-        }
-
-            setCompletedItems(completed);
+                
+                return allReviewed;
+            });
+            
+            const formattedCompleted = completed.map(a => {
+                const sheetData = a.sheet_data || a.sheet || {};
+                const sections = sheetData.sections || [];
+                const sectionStatuses = a.section_statuses || a.sectionStatuses || sections.map(() => 'pending');
+                const reviewStatuses = a.review_statuses || a.reviewStatuses || sections.map(() => null);
+                const vDataArr = a.vendor_data || a.vendorData;
+                
+                const resolvedSections = [];
+                for (let i = 0; i < sections.length; i++) {
+                    if (sectionStatuses[i] !== 'reassigned') {
+                        resolvedSections.push({
+                            section: sections[i],
+                            reviewStatus: reviewStatuses[i],
+                            vDataMap: vDataArr ? vDataArr[i] : null
+                        });
+                    }
+                }
+                
+                return {
+                    ...a,
+                    resolvedSections
+                };
+            });
+            
+            setCompletedItems(formattedCompleted);
         } catch (err) {
             console.error('Failed to load completed assignments', err);
         }
@@ -301,7 +265,7 @@ export default function CompanyCompletedWorkPage() {
                                                             return (
                                                                 <React.Fragment key={rIdx}>
                                                                     <tr className="border-b border-slate-300">
-                                                                        <td rowSpan={obsCount} className="border-r border-slate-400 px-2 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px] border-l-4 border-l-blue-500">
+                                                                        <td rowSpan={obsCount} className="border-r border-slate-400 px-2 py-1.5 font-semibold text-blue-900 bg-blue-50/50 break-all whitespace-pre-wrap min-w-[150px] max-w-[200px] border-l-4 border-l-blue-500">
                                                                             {row.jobWeldDescription || '—'}
                                                                         </td>
                                                                         <td rowSpan={obsCount} className="border-r border-slate-400 p-2 text-center align-middle font-medium bg-slate-50">

@@ -444,7 +444,7 @@ export default function VendorOrderProgressPage() {
                                                                         <React.Fragment key={rIdx}>
                                                                             {/* Main row, spans the number of observations */}
                                                                             <tr>
-                                                                                <td rowSpan={obsCount} className="border border-slate-400 px-2 py-1 font-semibold text-blue-900 bg-blue-50/50 break-words whitespace-pre-wrap min-w-[150px]">
+                                                                                <td rowSpan={obsCount} className="border border-slate-400 px-2 py-1 font-semibold text-blue-900 bg-blue-50/50 break-all whitespace-pre-wrap min-w-[150px] max-w-[200px]">
                                                                                     {row.jobWeldDescription || '—'}
                                                                                 </td>
                                                                                 <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white">
