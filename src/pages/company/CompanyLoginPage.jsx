@@ -17,12 +17,10 @@ export default function CompanyLoginPage() {
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
-  // Cross-portal protection: redirect if already logged in
+  // If already logged in as company, go to company dashboard
   useEffect(() => {
-    if (isAuthenticated && user) {
-      if (user.portalType === 'company') navigate('/company/dashboard', { replace: true });
-      else if (user.portalType === 'vendor') navigate('/vendor/dashboard', { replace: true });
-      else if (user.portalType === 'superadmin') navigate('/superadmin/dashboard', { replace: true });
+    if (isAuthenticated && user?.portalType === 'company') {
+      navigate('/company/dashboard', { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 

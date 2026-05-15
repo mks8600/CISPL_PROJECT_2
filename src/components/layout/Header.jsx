@@ -17,7 +17,7 @@ export function Header({ portalType }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout();
+    logout(portalType);
     navigate('/');
   };
 

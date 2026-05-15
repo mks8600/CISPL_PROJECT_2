@@ -3,20 +3,43 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-function getToken() {
-  return localStorage.getItem('cispl_token');
+/**
+ * Detects the portal type from the current URL hash.
+ */
+function getPortalFromUrl() {
+  const hash = window.location.hash || '';
+  if (hash.includes('/company/')) return 'company';
+  if (hash.includes('/vendor/')) return 'vendor';
+  if (hash.includes('/superadmin/')) return 'superadmin';
+  return null;
 }
 
-export function setToken(token) {
-  localStorage.setItem('cispl_token', token);
+export function getToken(portal) {
+  const p = portal || getPortalFromUrl();
+  return p ? localStorage.getItem(`cispl_token_${p}`) : localStorage.getItem('cispl_token');
 }
 
-export function removeToken() {
-  localStorage.removeItem('cispl_token');
+export function setToken(token, portal) {
+  const p = portal || getPortalFromUrl();
+  if (p) {
+    localStorage.setItem(`cispl_token_${p}`, token);
+  } else {
+    localStorage.setItem('cispl_token', token);
+  }
+}
+
+export function removeToken(portal) {
+  const p = portal || getPortalFromUrl();
+  if (p) {
+    localStorage.removeItem(`cispl_token_${p}`);
+  } else {
+    localStorage.removeItem('cispl_token');
+  }
 }
 
 async function apiRequest(endpoint, options = {}) {
-  const token = getToken();
+  const portal = options.portal || getPortalFromUrl();
+  const token = getToken(portal);
   const config = {
     headers: {
       'Content-Type': 'application/json',
@@ -29,7 +52,7 @@ async function apiRequest(endpoint, options = {}) {
   const res = await fetch(`${API_BASE}${endpoint}`, config);
 
   if (res.status === 401) {
-    removeToken();
+    removeToken(portal);
     window.location.hash = '#/';
     throw new Error('Session expired. Please login again.');
   }

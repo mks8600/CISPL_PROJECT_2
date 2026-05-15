@@ -16,12 +16,10 @@ export default function VendorLoginPage() {
     const { login, isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
 
-    // Cross-portal protection
+    // If already logged in as vendor, go to vendor dashboard
     useEffect(() => {
-        if (isAuthenticated && user) {
-            if (user.portalType === 'vendor') navigate('/vendor/dashboard', { replace: true });
-            else if (user.portalType === 'company') navigate('/company/dashboard', { replace: true });
-            else if (user.portalType === 'superadmin') navigate('/superadmin/dashboard', { replace: true });
+        if (isAuthenticated && user?.portalType === 'vendor') {
+            navigate('/vendor/dashboard', { replace: true });
         }
     }, [isAuthenticated, user, navigate]);
 

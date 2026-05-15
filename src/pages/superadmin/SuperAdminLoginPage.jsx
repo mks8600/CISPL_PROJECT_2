@@ -15,12 +15,10 @@ export default function SuperAdminLoginPage() {
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
-  // Cross-portal protection
+  // If already logged in as superadmin, go to superadmin dashboard
   useEffect(() => {
-    if (isAuthenticated && user) {
-      if (user.portalType === 'superadmin') navigate('/superadmin/dashboard', { replace: true });
-      else if (user.portalType === 'company') navigate('/company/dashboard', { replace: true });
-      else if (user.portalType === 'vendor') navigate('/vendor/dashboard', { replace: true });
+    if (isAuthenticated && user?.portalType === 'superadmin') {
+      navigate('/superadmin/dashboard', { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 

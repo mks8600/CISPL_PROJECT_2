@@ -29,8 +29,8 @@ import SuperAdminVendorsPage from './pages/superadmin/SuperAdminVendorsPage';
 
 function App() {
   return (
-    <AuthProvider>
-      <HashRouter>
+    <HashRouter>
+      <AuthProvider>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/company/login" element={<CompanyLoginPage />} />
@@ -65,8 +65,8 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Toaster position="top-right" richColors />
-      </HashRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </HashRouter>
   );
 }
 

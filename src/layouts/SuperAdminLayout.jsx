@@ -13,7 +13,7 @@ export default function SuperAdminLayout() {
   }
 
   const handleLogout = () => {
-    logout();
+    logout('superadmin');
     navigate('/');
   };
 
