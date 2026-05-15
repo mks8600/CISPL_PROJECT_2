@@ -284,7 +284,7 @@ export default function CompanyPendingWorkPage() {
                                                                 </tr>
                                                                 {reason && (
                                                                     <tr>
-                                                                        <td colSpan={2} className="border border-slate-400 px-3 py-1.5 bg-orange-50 text-sm text-slate-700">
+                                                                        <td colSpan={8} className="border border-slate-400 px-3 py-1.5 bg-orange-50 text-sm text-slate-700">
                                                                             <span className="font-medium">Reason:</span> {reason}
                                                                         </td>
                                                                     </tr>

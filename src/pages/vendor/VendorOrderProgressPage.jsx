@@ -60,7 +60,7 @@ export default function VendorOrderProgressPage() {
         const onFocus = () => loadOrders();
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
-    }, [user]);
+    }, [user?.id]);
 
     const handleSectionStatus = (assignmentId, sectionIndex, newStatus) => {
         setAcceptedOrders(prev => {

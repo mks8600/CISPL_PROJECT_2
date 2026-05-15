@@ -2,16 +2,13 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+
 import {
   ClipboardList,
   Clock,
   PlayCircle,
   CheckCircle2,
-  PlusCircle,
-  Film,
-  Trash2,
-  X
+  PlusCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';

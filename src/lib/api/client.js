@@ -53,7 +53,7 @@ async function apiRequest(endpoint, options = {}) {
 
   if (res.status === 401) {
     removeToken(portal);
-    window.location.hash = '#/';
+    window.location.hash = portal ? `#/${portal}/login` : '#/';
     throw new Error('Session expired. Please login again.');
   }
 

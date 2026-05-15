@@ -37,7 +37,7 @@ export default function VendorDashboardPage() {
         load();
         window.addEventListener('focus', load);
         return () => window.removeEventListener('focus', load);
-    }, [user]);
+    }, [user?.id]);
 
     const handleAddFilmSize = async (e) => {
         e.preventDefault();
@@ -100,7 +100,7 @@ export default function VendorDashboardPage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-slate-900">
-                    Welcome back, {user?.name || 'Vendor'}
+                    Welcome back, {user?.vendorName || user?.name || 'Vendor'}
                 </h1>
                 <p className="text-slate-500">Here's an overview of your operations today.</p>
             </div>

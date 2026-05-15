@@ -26,7 +26,7 @@ export default function VendorReassignedTasksPage() {
         const onFocus = () => loadOrders();
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
-    }, [user]);
+    }, [user?.id]);
 
     const loadOrders = async () => {
         try {
