@@ -39,15 +39,16 @@ export default function CompanyPendingWorkPage() {
             setVendors(vendorsData);
 
             const withPending = all.filter((a) => {
-                // Include revision sheets that need vendor assignment (no vendor yet)
-                const isRevisionNeedingVendor = a.reassigned_from && !a.vendor_id && !a.submitted;
-                if (isRevisionNeedingVendor) return true;
-
-                if (a.status !== 'accepted') return false;
                 const sheetData = a.sheet_data || a.sheet || {};
                 const sections = sheetData.sections || [];
                 const statuses = a.section_statuses || a.sectionStatuses || sections.map(() => 'pending');
                 const reviewStatuses = a.review_statuses || a.reviewStatuses || sections.map(() => null);
+
+                // Include revision sheets that need vendor assignment (no vendor yet and has pending sections)
+                const isRevisionNeedingVendor = a.reassigned_from && !a.vendor_id && !a.submitted && statuses.some((s) => s === 'pending');
+                if (isRevisionNeedingVendor) return true;
+
+                if (a.status !== 'accepted') return false;
 
                 // If submitted, only show if it has sections reviewed as retake/missing
                 // (not yet reassigned). Submitted sheets with 'complete' sections

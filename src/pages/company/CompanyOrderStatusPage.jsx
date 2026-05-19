@@ -54,9 +54,12 @@ export default function CompanyOrderStatusPage() {
                     return acc;
                 }, []);
                 if (activeIndices.length === 0) return false;
-                // Exclude if all active sections are reviewed as OK
-                const allActiveOk = activeIndices.every((i) => reviewStatuses[i] === 'ok');
-                if (allActiveOk) return false;
+                // Exclude if all active sections are fully reviewed (ok, repair, or r/s)
+                const allActiveReviewed = activeIndices.every((i) => {
+                    const rs = reviewStatuses[i];
+                    return rs === 'ok' || rs === 'repair' || rs === 'r/s';
+                });
+                if (allActiveReviewed) return false;
                 // Must have at least one complete section to review
                 const hasCompleteSectionToReview = activeIndices.some((i) => sectionStatuses[i] === 'complete');
                 if (!hasCompleteSectionToReview) return false;
