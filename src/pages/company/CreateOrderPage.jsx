@@ -321,170 +321,177 @@ export default function CreateOrderPage() {
         </div>
       )}
 
-      {/* ===== Radiographic Requisition Sheet Header ===== */}
-      <table className="w-full border-collapse border border-slate-400 text-sm">
-        <thead>
-          <tr>
-            <th
-              colSpan={4}
-              className="border border-slate-400 bg-slate-100 px-3 py-2 text-center font-semibold text-slate-800"
-            >
-              Radiographic requisition sheet
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {/* RS NO. | Date */}
-          <tr>
-            <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 w-[15%] bg-yellow-200">RS NO.:</td>
-            <td className="border border-slate-400 px-2 py-1 w-[35%]">
-              <Input value={formData.rsNo} onChange={(e) => handleChange('rsNo', e.target.value)} className={inputClass} />
-            </td>
-            <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 w-[15%] bg-yellow-200">Date:</td>
-            <td className="border border-slate-400 px-2 py-1 w-[35%]">
-              <Input type="date" value={formData.date} onChange={(e) => handleChange('date', e.target.value)} className={inputClass} />
-            </td>
-          </tr>
-          {/* Job no. */}
-          <tr>
-            <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 bg-yellow-200">Job no.:</td>
-            <td colSpan={3} className="border border-slate-400 px-2 py-1">
-              {jobsList.length > 0 ? (
-                <Select value={formData.jobNo} onValueChange={(value) => handleChange('jobNo', value)}>
-                  <SelectTrigger className="border-0 shadow-none h-8 rounded-none focus:ring-0 px-1 w-full md:w-1/2">
-                    <SelectValue placeholder="Select job no." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobsList.map((job) => (
-                      <SelectItem key={job.id} value={job.job_no || job.jobNo}>
-                        {job.job_no || job.jobNo}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input value={formData.jobNo} onChange={(e) => handleChange('jobNo', e.target.value)} className={`${inputClass} w-full md:w-1/2`} placeholder="No jobs available" />
-              )}
-            </td>
-          </tr>
-          {/* Description / Tag no */}
-          <tr>
-            <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 bg-yellow-200">Description / Tag no:</td>
-            <td colSpan={3} className="border border-slate-400 px-2 py-1">
-              <Input
-                value={formData.descriptionTagNo || ''}
-                onChange={(e) => handleChange('descriptionTagNo', e.target.value)}
-                className={`${inputClass} w-full`}
-                placeholder="Enter description or tag no."
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      {/* ===== Radiographic Requisition Sheet Card ===== */}
+      <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-6 md:p-8 space-y-6">
+        
+        {/* ===== Radiographic Requisition Sheet Header ===== */}
+        <table className="w-full border-collapse border border-slate-400 text-sm bg-white">
+          <thead>
+            <tr>
+              <th
+                colSpan={4}
+                className="border border-slate-400 bg-slate-100 px-3 py-2 text-center font-semibold text-slate-800"
+              >
+                Radiographic requisition sheet
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* RS NO. | Date */}
+            <tr>
+              <td className="border border-slate-400 px-3 py-1.5 font-bold text-slate-700 w-[15%] bg-slate-50">RS NO.:</td>
+              <td className="border border-slate-400 px-2 py-1 w-[35%]">
+                <Input value={formData.rsNo} onChange={(e) => handleChange('rsNo', e.target.value)} className={inputClass} />
+              </td>
+              <td className="border border-slate-400 px-3 py-1.5 font-bold text-slate-700 w-[15%] bg-slate-50">Date:</td>
+              <td className="border border-slate-400 px-2 py-1 w-[35%]">
+                <Input type="date" value={formData.date} onChange={(e) => handleChange('date', e.target.value)} className={inputClass} />
+              </td>
+            </tr>
+            {/* Job no. */}
+            <tr>
+              <td className="border border-slate-400 px-3 py-1.5 font-bold text-slate-700 bg-slate-50">Job no.:</td>
+              <td colSpan={3} className="border border-slate-400 px-2 py-1">
+                {jobsList.length > 0 ? (
+                  <Select value={formData.jobNo} onValueChange={(value) => handleChange('jobNo', value)}>
+                    <SelectTrigger className="border border-slate-300 shadow-sm h-8 rounded-md focus:ring-1 focus:ring-blue-500 px-3 w-full md:w-1/2 bg-white">
+                      <SelectValue placeholder="Select job no." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jobsList.map((job) => (
+                        <SelectItem key={job.id} value={job.job_no || job.jobNo}>
+                          {job.job_no || job.jobNo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={formData.jobNo} onChange={(e) => handleChange('jobNo', e.target.value)} className={`${inputClass} w-full md:w-1/2`} placeholder="No jobs available" />
+                )}
+              </td>
+            </tr>
+            {/* Description / Tag no */}
+            <tr>
+              <td className="border border-slate-400 px-3 py-1.5 font-bold text-slate-700 bg-slate-50">Description / Tag no:</td>
+              <td colSpan={3} className="border border-slate-400 px-2 py-1">
+                <Input
+                  value={formData.descriptionTagNo || ''}
+                  onChange={(e) => handleChange('descriptionTagNo', e.target.value)}
+                  className={`${inputClass} w-full`}
+                  placeholder="Enter description or tag no."
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-      {/* ===== Detail Sections ===== */}
-      {sections.map((section, sectionIndex) => (
-        <div key={section.id} className="relative group">
-          <table className="w-full border-collapse border border-slate-400 text-sm">
-            <thead>
-              {/* Serial No row with delete button */}
-              <tr>
-                <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50">
-                  <div className="flex items-center justify-between">
-                    <span>Serial No: {sectionIndex + 1}</span>
-                    {sections.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeSection(sectionIndex)}
-                        className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
-                        title="Delete this section"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </th>
-              </tr>
-              {/* Column headers */}
-              <tr>
-                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100 w-[70%]">
-                  Job/Weld Description
-                </th>
-                <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">
-                  Remark
-                </th>
-              </tr>
-            </thead>
+        {/* ===== Detail Sections ===== */}
+        <div className="space-y-4">
+          {sections.map((section, sectionIndex) => (
+            <div key={section.id} className="relative group">
+              <table className="w-full border-collapse border border-slate-400 text-sm bg-white">
+                <thead>
+                  {/* Serial No row with delete button */}
+                  <tr>
+                    <th colSpan={2} className="border border-slate-400 px-3 py-1.5 text-left font-medium text-slate-700 bg-slate-50">
+                      <div className="flex items-center justify-between">
+                        <span>Serial No: {sectionIndex + 1}</span>
+                        {sections.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSection(sectionIndex)}
+                            className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                            title="Delete this section"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  </tr>
+                  {/* Column headers */}
+                  <tr>
+                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100 w-[70%]">
+                      Job/Weld Description
+                    </th>
+                    <th className="border border-slate-400 px-3 py-1.5 text-center font-medium text-slate-700 bg-slate-100">
+                      Remark
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-slate-400 px-2 py-1 align-top bg-white">
+                      <textarea
+                        value={section.rows?.[0]?.jobWeldDescription || ''}
+                        onChange={(e) => { handleSectionChange(sectionIndex, 'jobWeldDescription', e.target.value); autoResize(e.target); }}
+                        ref={(el) => { if (el && section.rows?.[0]?.jobWeldDescription) autoResize(el); }}
+                        className="w-full border-0 shadow-none rounded-none focus:outline-none focus:ring-0 px-1 py-1 resize-none overflow-hidden text-sm min-h-[2rem] leading-relaxed bg-white"
+                        rows={1}
+                        placeholder="Type here... press Enter for new line"
+                      />
+                    </td>
+                    <td className="border border-slate-400 px-2 py-1 align-top bg-white">
+                      <textarea
+                        value={section.rows?.[0]?.remark || ''}
+                        onChange={(e) => { handleSectionChange(sectionIndex, 'remark', e.target.value); autoResize(e.target); }}
+                        ref={(el) => { if (el && section.rows?.[0]?.remark) autoResize(el); }}
+                        className="w-full border-0 shadow-none rounded-none focus:outline-none focus:ring-0 px-1 py-1 resize-none overflow-hidden text-sm min-h-[2rem] leading-relaxed bg-white"
+                        rows={1}
+                        placeholder="Add a remark..."
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+
+        {/* ===== Offered By ===== */}
+        <div className="flex justify-start pt-2">
+          <table className="w-full sm:w-1/2 md:w-1/3 border-collapse text-sm bg-white">
             <tbody>
               <tr>
-                <td className="border border-slate-400 px-2 py-1 align-top">
-                  <textarea
-                    value={section.rows?.[0]?.jobWeldDescription || ''}
-                    onChange={(e) => { handleSectionChange(sectionIndex, 'jobWeldDescription', e.target.value); autoResize(e.target); }}
-                    ref={(el) => { if (el && section.rows?.[0]?.jobWeldDescription) autoResize(el); }}
-                    className="w-full border-0 shadow-none rounded-none focus:outline-none focus:ring-0 px-1 py-1 resize-none overflow-hidden text-sm min-h-[2rem] leading-relaxed"
-                    rows={1}
-                    placeholder="Type here... press Enter for new line"
-                  />
+                <td className="border border-slate-400 px-3 py-1.5 font-bold text-center text-slate-700 bg-slate-50 w-[40%]">
+                  OFFERED BY
                 </td>
-                <td className="border border-slate-400 px-2 py-1 align-top">
-                  <textarea
-                    value={section.rows?.[0]?.remark || ''}
-                    onChange={(e) => { handleSectionChange(sectionIndex, 'remark', e.target.value); autoResize(e.target); }}
-                    ref={(el) => { if (el && section.rows?.[0]?.remark) autoResize(el); }}
-                    className="w-full border-0 shadow-none rounded-none focus:outline-none focus:ring-0 px-1 py-1 resize-none overflow-hidden text-sm min-h-[2rem] leading-relaxed"
-                    rows={1}
-                    placeholder="Add a remark..."
-                  />
+                <td className="border border-slate-400 px-2 py-1 bg-white">
+                  <Select value={formData.offeredBy || 'CISPL'} onValueChange={(val) => handleChange('offeredBy', val)}>
+                    <SelectTrigger className="border-0 shadow-none h-8 rounded-none focus:ring-0 px-1 w-full font-semibold">
+                      <SelectValue placeholder="Select offered by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CISPL">CISPL</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-      ))}
 
-      {/* ===== Offered By ===== */}
-      <div className="flex justify-start pt-2">
-        <table className="w-full sm:w-1/2 md:w-1/3 border-collapse text-sm">
-          <tbody>
-            <tr>
-              <td className="border border-slate-400 px-3 py-1.5 font-bold text-center text-yellow-900 bg-yellow-200 w-[40%]">
-                OFFERED BY
-              </td>
-              <td className="border border-slate-400 px-2 py-1 bg-white">
-                <Select value={formData.offeredBy || 'CISPL'} onValueChange={(val) => handleChange('offeredBy', val)}>
-                  <SelectTrigger className="border-0 shadow-none h-8 rounded-none focus:ring-0 px-1 w-full font-semibold">
-                    <SelectValue placeholder="Select offered by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CISPL">CISPL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        {/* ===== Bottom Buttons: Add Section + Save ===== */}
+        <div className="flex items-center justify-between pt-6 border-t border-slate-100">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addSection}
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Add New Section
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSaveSheet}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Save Sheet
+          </Button>
+        </div>
 
-      {/* ===== Bottom Buttons: Add Section + Save ===== */}
-      <div className="flex items-center justify-between pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={addSection}
-        >
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Add New Section
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSaveSheet}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          Save Sheet
-        </Button>
       </div>
     </div>
   );

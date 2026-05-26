@@ -29,8 +29,8 @@ export function Header({ portalType }) {
       .toUpperCase();
   };
 
-  const portalLabel = portalType === 'company' ? 'Company Portal' : 'Vendor Portal';
-  const portalColor = portalType === 'company' ? 'bg-blue-600' : 'bg-emerald-600';
+  const portalLabel = portalType === 'superadmin' ? 'Super Admin' : (portalType === 'company' ? 'Company Portal' : 'Vendor Portal');
+  const portalColor = portalType === 'superadmin' ? 'bg-purple-600' : (portalType === 'company' ? 'bg-blue-600' : 'bg-emerald-600');
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white">

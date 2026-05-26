@@ -619,7 +619,7 @@ export default function VendorOrderProgressPage() {
                                             ) : (
                                                 <Button
                                                     onClick={() => handleSubmitSheet(assignment.id)}
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <SendHorizonal className="h-4 w-4" />
                                                     Submit to Company
