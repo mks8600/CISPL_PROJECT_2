@@ -193,9 +193,25 @@ export default function CompanyCompletedWorkPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            <CheckCircle2 className="h-3 w-3" /> All Reviewed OK
-                                        </span>
+                                        {(() => {
+                                            const hasRepair = allSections.some(s => s.reviewStatus === 'repair');
+                                            const hasRS = allSections.some(s => s.reviewStatus === 'r/s');
+                                            if (hasRepair || hasRS) {
+                                                const parts = [];
+                                                if (hasRepair) parts.push('Repair');
+                                                if (hasRS) parts.push('R/S');
+                                                return (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                                        <CheckCircle2 className="h-3 w-3" /> Reviewed ({parts.join(' & ')})
+                                                    </span>
+                                                );
+                                            }
+                                            return (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    <CheckCircle2 className="h-3 w-3" /> All Reviewed OK
+                                                </span>
+                                            );
+                                        })()}
                                         <span className="text-xs text-slate-400">{allSections.length} section(s)</span>
                                         {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                                     </div>

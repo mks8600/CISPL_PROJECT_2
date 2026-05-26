@@ -57,7 +57,7 @@ export default function CompanyOrderStatusPage() {
                 // Exclude if all active sections are fully reviewed (ok, repair, or r/s)
                 const allActiveReviewed = activeIndices.every((i) => {
                     const rs = reviewStatuses[i];
-                    return rs === 'ok' || rs === 'repair' || rs === 'r/s';
+                    return rs === 'ok' || rs === 'repair' || rs === 'r/s' || rs === 'retake';
                 });
                 if (allActiveReviewed) return false;
                 // Must have at least one complete section to review
@@ -175,6 +175,7 @@ export default function CompanyOrderStatusPage() {
                 reviewStatuses: currentReviewStatuses,
                 reviewDescriptions: currentReviewDescriptions,
             });
+            setAssignments(prev => prev.filter(a => a.id !== assignment.id));
             loadData();
             if (result.revisionCreated) {
                 const revFormData = result.revision?.sheet_data?.formData || result.revision?.sheet_data?.form_data || {};
@@ -201,6 +202,11 @@ export default function CompanyOrderStatusPage() {
         if (status === 'repair') return (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                 <Wrench className="h-3 w-3" /> Repair
+            </span>
+        );
+        if (status === 'r/s') return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                <RotateCcw className="h-3 w-3" /> R/S
             </span>
         );
         return (
@@ -368,6 +374,7 @@ export default function CompanyOrderStatusPage() {
                                                                                                 <Select
                                                                                                     value={vData.observations[0].companyValue || ''}
                                                                                                     onValueChange={val => handleCompanyObservationValue(assignment.id, sIdx, rIdx, 0, val)}
+                                                                                                    disabled={!!rStatus}
                                                                                                 >
                                                                                                     <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
                                                                                                         <SelectValue placeholder="—" />
@@ -413,6 +420,7 @@ export default function CompanyOrderStatusPage() {
                                                                                             <Select
                                                                                                 value={obs.companyValue || ''}
                                                                                                 onValueChange={val => handleCompanyObservationValue(assignment.id, sIdx, rIdx, offsetIdx + 1, val)}
+                                                                                                disabled={!!rStatus}
                                                                                             >
                                                                                                 <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
                                                                                                     <SelectValue placeholder="—" />

@@ -67,8 +67,8 @@ export default function CompanyOrdersPage() {
       return;
     }
 
-    const sheet = sheets.find((s) => s.id === selectedSheetId);
-    const vendor = vendors.find((v) => v.id === selectedVendorId);
+    const sheet = sheets.find((s) => String(s.id) === String(selectedSheetId));
+    const vendor = vendors.find((v) => String(v.id) === String(selectedVendorId));
 
     if (!sheet || !vendor) {
       toast.error('Invalid selection.');
@@ -99,14 +99,14 @@ export default function CompanyOrdersPage() {
     }
   };
 
-  const handleDeleteAssignment = async (assignId) => {
-    if (!window.confirm('Are you sure you want to delete this assignment? This action cannot be undone.')) return;
+  const handleRevokeAssignment = async (assignId) => {
+    if (!window.confirm('Are you sure you want to revoke this assignment? The vendor will no longer be able to access or work on this sheet.')) return;
     try {
       await assignmentsApi.delete(assignId);
       setAssignedSheets(assignedSheets.filter((a) => a.id !== assignId));
-      toast.success('Assignment removed.');
+      toast.success('Assignment revoked successfully.');
     } catch (err) {
-      toast.error(err.message || 'Failed to delete assignment');
+      toast.error(err.message || 'Failed to revoke assignment');
     }
   };
 
@@ -336,12 +336,13 @@ export default function CompanyOrdersPage() {
                         {formatDate(assignment.assigned_at || assignment.assignedAt)}
                       </span>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteAssignment(assignment.id); }}
-                        className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); handleRevokeAssignment(assignment.id); }}
+                        className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 h-8 text-xs font-semibold px-2.5 py-1 flex items-center gap-1 shrink-0"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Revoke
                       </Button>
                       {expandedId === assignment.id ? (
                         <ChevronUp className="h-4 w-4 text-slate-400" />

@@ -32,18 +32,18 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
-// General rate limiting
+// General rate limiting (increased to 1000 requests per minute)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 2000,
+  windowMs: 1 * 60 * 1000, // 1 minute window
+  max: 1000,
   message: { error: 'Too many requests, please try again later.' }
 });
 app.use('/api/', limiter);
 
-// Stricter rate limit for login
+// Stricter rate limit for login (increased to 100 attempts per minute)
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+  windowMs: 1 * 60 * 1000, // 1 minute window
+  max: 100,
   message: { error: 'Too many login attempts, please try again later.' }
 });
 app.use('/api/auth/login', loginLimiter);

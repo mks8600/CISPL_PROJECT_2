@@ -24,9 +24,9 @@ function createEmptySection(initialSerial = '') {
   };
 }
 
-function getEmptyFormData() {
+function getEmptyFormData(nextRsNo = '') {
   return {
-    rsNo: '',
+    rsNo: nextRsNo,
     date: '',
     jobNo: '',
     descriptionTagNo: '',
@@ -40,11 +40,37 @@ function getEmptyFormData() {
   };
 }
 
+function getNextRsNo(sheets) {
+  if (!sheets || sheets.length === 0) return '1';
+  let max = 0;
+  let prefix = '';
+  sheets.forEach(sheet => {
+    const rsNoStr = sheet.form_data?.rsNo || sheet.formData?.rsNo;
+    if (rsNoStr) {
+      const match = String(rsNoStr).match(/^(\D*)(\d+)/);
+      if (match) {
+        const num = parseInt(match[2], 10);
+        if (num > max) {
+          max = num;
+          prefix = match[1];
+        }
+      } else if (!isNaN(parseInt(rsNoStr, 10))) {
+        const num = parseInt(rsNoStr, 10);
+        if (num > max) {
+          max = num;
+          prefix = '';
+        }
+      }
+    }
+  });
+  return max === 0 ? '1' : `${prefix}${max + 1}`;
+}
+
 
 
 export default function CreateOrderPage() {
   const { user } = useAuth();
-  const [formData, setFormData] = useState(getEmptyFormData());
+  const [formData, setFormData] = useState(getEmptyFormData('1'));
   const [sections, setSections] = useState([createEmptySection('1')]);
   const [savedSheets, setSavedSheets] = useState([]);
   const [activeSheetId, setActiveSheetId] = useState(null);
@@ -61,6 +87,7 @@ export default function CreateOrderPage() {
         ]);
         setSavedSheets(sheetsRes);
         setJobsList(jobsRes);
+        setFormData(prev => (prev.rsNo === '' || prev.rsNo === '1') ? { ...prev, rsNo: getNextRsNo(sheetsRes) } : prev);
       } catch (err) {
         toast.error('Failed to load init data');
       }
@@ -166,7 +193,7 @@ export default function CreateOrderPage() {
   };
 
   const handleNewSheet = () => {
-    setFormData(getEmptyFormData());
+    setFormData(getEmptyFormData(getNextRsNo(savedSheets)));
     setSections([createEmptySection('1')]);
     setActiveSheetId(null);
   };

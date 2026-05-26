@@ -63,6 +63,15 @@ export default function CompanyPendingWorkPage() {
 
                 // Not submitted — show if it has truly pending (not yet worked on) sections
                 return statuses.some((s) => s === 'pending');
+            }).map((a) => {
+                if (a.reassigned_from) {
+                    const parent = all.find((item) => String(item.id) === String(a.reassigned_from));
+                    return {
+                        ...a,
+                        previousVendorName: parent ? (parent.vendor_name || parent.vendorName) : null
+                    };
+                }
+                return a;
             });
             setPendingItems(withPending);
         } catch (err) {
@@ -210,6 +219,11 @@ export default function CompanyPendingWorkPage() {
                                             </p>
                                             <p className="text-sm text-slate-500">
                                                 Vendor: <span className={`font-medium ${(assignment.vendor_name || assignment.vendorName) ? 'text-slate-700' : 'text-red-600'}`}>{assignment.vendor_name || assignment.vendorName || 'Not Assigned'}</span>
+                                                {assignment.previousVendorName && (
+                                                    <span className="ml-2 text-slate-400">
+                                                        • Prev Vendor: <span className="font-medium text-slate-600">{assignment.previousVendorName}</span>
+                                                    </span>
+                                                )}
                                                 {fd.rsNo && <span className="ml-2">• RS: {fd.rsNo}</span>}
                                                 {assignment.reassigned_from && !assignment.vendor_id && <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 uppercase">Revision</span>}
                                             </p>

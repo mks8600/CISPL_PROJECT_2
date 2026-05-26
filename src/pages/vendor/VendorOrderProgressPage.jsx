@@ -126,7 +126,9 @@ export default function VendorOrderProgressPage() {
             const updated = prev.map((a) => {
                 if (a.id === assignmentId) {
                     const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
-                    newVendorData[sIdx][rIdx].observations[obsIdx].status = newStatus;
+                    if (newVendorData[sIdx] && newVendorData[sIdx][rIdx] && newVendorData[sIdx][rIdx].observations && newVendorData[sIdx][rIdx].observations[obsIdx]) {
+                        newVendorData[sIdx][rIdx].observations[obsIdx].status = newStatus;
+                    }
                     return { ...a, vendorData: newVendorData };
                 }
                 return a;
@@ -144,11 +146,14 @@ export default function VendorOrderProgressPage() {
     };
 
     const handleObservationValue = (assignmentId, sIdx, rIdx, obsIdx, value) => {
+        const finalValue = value === 'none' ? '' : value;
         setAcceptedOrders(prev => {
             const updated = prev.map((a) => {
                 if (a.id === assignmentId) {
                     const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
-                    newVendorData[sIdx][rIdx].observations[obsIdx].value = value;
+                    if (newVendorData[sIdx] && newVendorData[sIdx][rIdx] && newVendorData[sIdx][rIdx].observations && newVendorData[sIdx][rIdx].observations[obsIdx]) {
+                        newVendorData[sIdx][rIdx].observations[obsIdx].value = finalValue;
+                    }
                     return { ...a, vendorData: newVendorData };
                 }
                 return a;
@@ -169,7 +174,9 @@ export default function VendorOrderProgressPage() {
             const updated = prev.map((a) => {
                 if (a.id === assignmentId) {
                     const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
-                    newVendorData[sIdx][rIdx].observations[obsIdx].label = label;
+                    if (newVendorData[sIdx] && newVendorData[sIdx][rIdx] && newVendorData[sIdx][rIdx].observations && newVendorData[sIdx][rIdx].observations[obsIdx]) {
+                        newVendorData[sIdx][rIdx].observations[obsIdx].label = label;
+                    }
                     return { ...a, vendorData: newVendorData };
                 }
                 return a;
@@ -499,6 +506,7 @@ export default function VendorOrderProgressPage() {
                                                                                                     <SelectValue placeholder="—" />
                                                                                                 </SelectTrigger>
                                                                                                 <SelectContent>
+                                                                                                    <SelectItem value="none" className="text-slate-400 italic">Deselect</SelectItem>
                                                                                                     <SelectItem value="OK">OK</SelectItem>
                                                                                                     <SelectItem value="R/S">R/S</SelectItem>
                                                                                                     <SelectItem value="Repair">Repair</SelectItem>
@@ -568,6 +576,7 @@ export default function VendorOrderProgressPage() {
                                                                                                     <SelectValue placeholder="—" />
                                                                                                 </SelectTrigger>
                                                                                                 <SelectContent>
+                                                                                                    <SelectItem value="none" className="text-slate-400 italic">Deselect</SelectItem>
                                                                                                     <SelectItem value="OK">OK</SelectItem>
                                                                                                     <SelectItem value="R/S">R/S</SelectItem>
                                                                                                     <SelectItem value="Repair">Repair</SelectItem>

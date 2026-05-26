@@ -40,6 +40,44 @@ export function AuthProvider({ children }) {
   const currentPortal = getPortalFromPath(location.pathname);
   const currentState = authStates[currentPortal] || { user: null, isAuthenticated: false };
 
+  // Synchronize authentication state across multiple tabs/windows
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      const portal = currentPortal;
+      if (!portal) return;
+
+      const tokenKey = `cispl_token_${portal}`;
+      const userKey = `cispl_user_${portal}`;
+
+      if (e.key === tokenKey) {
+        if (!e.newValue) {
+          // Token was deleted in another tab (logout)
+          setAuthStates(prev => ({
+            ...prev,
+            [portal]: { user: null, isAuthenticated: false }
+          }));
+        } else {
+          // Token changed/updated in another tab (new login)
+          try {
+            const userStr = localStorage.getItem(userKey);
+            const user = userStr ? JSON.parse(userStr) : null;
+            setAuthStates(prev => ({
+              ...prev,
+              [portal]: { user, isAuthenticated: true }
+            }));
+          } catch (err) {
+            console.error('Failed to parse user on storage sync:', err);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [currentPortal]);
+
   const login = async (rawEmail, rawPassword, portal, rawOrgCode = null) => {
     const email = rawEmail?.trim();
     const password = rawPassword?.trim();
