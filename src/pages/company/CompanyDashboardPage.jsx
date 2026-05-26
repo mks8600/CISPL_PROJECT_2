@@ -56,28 +56,28 @@ export default function CompanyDashboardPage() {
       value: totalCount,
       icon: ClipboardList,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
+      bgColor: 'bg-blue-500/10 border border-blue-500/10',
     },
     {
       title: 'Pending Response',
       value: pendingCount,
       icon: Clock,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100',
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-500/10 border border-amber-500/10',
     },
     {
       title: 'In Progress',
       value: acceptedCount,
       icon: PlayCircle,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-500/10 border border-indigo-500/10',
     },
     {
       title: 'Submitted',
       value: submittedCount,
       icon: CheckCircle2,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-500/10 border border-emerald-500/10',
     },
   ];
 
@@ -106,14 +106,14 @@ export default function CompanyDashboardPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
-          <Card key={stat.title}>
+          <Card key={stat.title} className="hover:scale-[1.02] hover:shadow-md hover:border-slate-300 transition-all duration-300">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-500">{stat.title}</p>
-                  <p className="text-3xl font-bold text-slate-900">{stat.value}</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{stat.title}</p>
+                  <p className="text-3xl font-extrabold text-slate-900 mt-1">{stat.value}</p>
                 </div>
-                <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                <div className={`p-3 rounded-2xl ${stat.bgColor}`}>
                   <stat.icon className={`h-6 w-6 ${stat.color}`} />
                 </div>
               </div>

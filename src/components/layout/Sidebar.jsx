@@ -120,22 +120,31 @@ export function Sidebar({ portalType }) {
   ];
 
   const navItems = portalType === 'superadmin' ? superAdminNavItems : (portalType === 'company' ? companyNavItems : vendorNavItems);
-  const activeColor = portalType === 'superadmin' ? 'bg-purple-50 text-purple-600 border-purple-600' : (portalType === 'company' ? 'bg-blue-50 text-blue-600 border-blue-600' : 'bg-emerald-50 text-emerald-600 border-emerald-600');
-  const hoverColor = portalType === 'superadmin' ? 'hover:bg-purple-50 hover:text-purple-600' : (portalType === 'company' ? 'hover:bg-blue-50 hover:text-blue-600' : 'hover:bg-emerald-50 hover:text-emerald-600');
+  const activeColor = portalType === 'superadmin' ? 'bg-purple-500/10 text-purple-700 border-purple-600 shadow-sm font-semibold' : (portalType === 'company' ? 'bg-blue-500/10 text-blue-700 border-blue-600 shadow-sm font-semibold' : 'bg-emerald-500/10 text-emerald-700 border-emerald-600 shadow-sm font-semibold');
+  const hoverColor = portalType === 'superadmin' ? 'hover:bg-purple-500/5 hover:text-purple-600 hover:translate-x-1' : (portalType === 'company' ? 'hover:bg-blue-500/5 hover:text-blue-600 hover:translate-x-1' : 'hover:bg-emerald-500/5 hover:text-emerald-600 hover:translate-x-1');
   const accentColor = portalType === 'superadmin' ? 'text-purple-600' : (portalType === 'company' ? 'text-blue-600' : 'text-emerald-600');
 
   const navContent = (
     <nav className="p-4 space-y-2">
       {navItems.map((item) => {
-        const isActive = pathname === item.href ||
-          (item.href !== '/company/dashboard' && item.href !== '/vendor/dashboard' && item.href !== '/superadmin/dashboard' && pathname.startsWith(item.href));
+        const isActive = pathname === item.href || (
+          item.href !== '/company/dashboard' &&
+          item.href !== '/vendor/dashboard' &&
+          item.href !== '/superadmin/dashboard' &&
+          pathname.startsWith(item.href) &&
+          !navItems.some(otherItem => 
+            otherItem.href !== item.href && 
+            otherItem.href.startsWith(item.href) && 
+            pathname.startsWith(otherItem.href)
+          )
+        );
 
         return (
           <Link
             key={item.href}
             to={item.href}
             className={cn(
-              'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors border-l-4 border-transparent',
+              'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-300 border-l-4 border-transparent',
               isActive ? activeColor : `text-slate-600 ${hoverColor}`
             )}
           >

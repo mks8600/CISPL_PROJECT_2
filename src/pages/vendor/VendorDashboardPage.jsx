@@ -68,7 +68,7 @@ export default function VendorDashboardPage() {
             description: 'All orders assigned to you',
             icon: Package,
             color: 'text-blue-600',
-            bgColor: 'bg-blue-50',
+            bgColor: 'bg-blue-500/10 border border-blue-500/10',
         },
         {
             title: 'Submitted',
@@ -76,7 +76,7 @@ export default function VendorDashboardPage() {
             description: 'Sheets sent back to company',
             icon: TrendingUp,
             color: 'text-emerald-600',
-            bgColor: 'bg-emerald-50',
+            bgColor: 'bg-emerald-500/10 border border-emerald-500/10',
         },
         {
             title: 'Accepted',
@@ -84,7 +84,7 @@ export default function VendorDashboardPage() {
             description: 'In progress orders',
             icon: Clock,
             color: 'text-purple-600',
-            bgColor: 'bg-purple-50',
+            bgColor: 'bg-purple-500/10 border border-purple-500/10',
         },
         {
             title: 'Pending Action',
@@ -92,7 +92,7 @@ export default function VendorDashboardPage() {
             description: 'Awaiting your response',
             icon: AlertCircle,
             color: 'text-amber-600',
-            bgColor: 'bg-amber-50',
+            bgColor: 'bg-amber-500/10 border border-amber-500/10',
         },
     ];
 
@@ -109,18 +109,18 @@ export default function VendorDashboardPage() {
                 {stats.map((stat, i) => {
                     const Icon = stat.icon;
                     return (
-                        <Card key={i}>
+                        <Card key={i} className="hover:scale-[1.02] hover:shadow-md hover:border-slate-300 transition-all duration-300">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between space-y-0 pb-2">
-                                    <p className="text-sm font-medium text-slate-500">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                         {stat.title}
                                     </p>
-                                    <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                                        <Icon className={`h-4 w-4 ${stat.color}`} />
+                                    <div className={`p-2.5 rounded-xl ${stat.bgColor}`}>
+                                        <Icon className={`h-4.5 w-4.5 ${stat.color}`} />
                                     </div>
                                 </div>
-                                <div>
-                                    <div className="text-2xl font-bold text-slate-900">{stat.value}</div>
+                                <div className="mt-1">
+                                    <div className="text-2xl font-extrabold text-slate-900">{stat.value}</div>
                                     <p className="text-xs text-slate-500 mt-1">
                                         {stat.description}
                                     </p>
