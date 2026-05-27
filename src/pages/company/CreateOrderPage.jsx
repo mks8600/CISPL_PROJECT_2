@@ -339,18 +339,18 @@ export default function CreateOrderPage() {
           <tbody>
             {/* RS NO. | Date */}
             <tr>
-              <td className="border border-slate-400 px-3 py-1.5 font-bold text-slate-700 w-[15%] bg-slate-50">RS NO.:</td>
+              <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 w-[15%] bg-yellow-100">RS NO.:</td>
               <td className="border border-slate-400 px-2 py-1 w-[35%]">
                 <Input value={formData.rsNo} onChange={(e) => handleChange('rsNo', e.target.value)} className={inputClass} />
               </td>
-              <td className="border border-slate-400 px-3 py-1.5 font-bold text-slate-700 w-[15%] bg-slate-50">Date:</td>
+              <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 w-[15%] bg-yellow-100">Date:</td>
               <td className="border border-slate-400 px-2 py-1 w-[35%]">
                 <Input type="date" value={formData.date} onChange={(e) => handleChange('date', e.target.value)} className={inputClass} />
               </td>
             </tr>
             {/* Job no. */}
             <tr>
-              <td className="border border-slate-400 px-3 py-1.5 font-bold text-slate-700 bg-slate-50">Job no.:</td>
+              <td className="border border-slate-400 px-3 py-1.5 font-bold text-yellow-900 bg-yellow-100">Job no.:</td>
               <td colSpan={3} className="border border-slate-400 px-2 py-1">
                 {jobsList.length > 0 ? (
                   <Select value={formData.jobNo} onValueChange={(value) => handleChange('jobNo', value)}>

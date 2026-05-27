@@ -222,6 +222,36 @@ export default function VendorOrderProgressPage() {
         });
     };
 
+    const handleMarkAllSectionComplete = (assignmentId, sIdx) => {
+        setAcceptedOrders(prev => {
+            const updated = prev.map((a) => {
+                if (a.id === assignmentId) {
+                    const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
+                    if (newVendorData[sIdx]) {
+                        Object.keys(newVendorData[sIdx]).forEach(rIdx => {
+                            if (newVendorData[sIdx][rIdx] && newVendorData[sIdx][rIdx].observations) {
+                                newVendorData[sIdx][rIdx].observations.forEach(obs => {
+                                    obs.status = 'complete';
+                                });
+                            }
+                        });
+                    }
+                    return { ...a, vendorData: newVendorData };
+                }
+                return a;
+            });
+            const changed = updated.find(a => a.id === assignmentId);
+            if (changed) {
+                debouncedSave(assignmentId, { 
+                    vendorData: changed.vendorData, 
+                    sectionStatuses: changed.sectionStatuses
+                });
+            }
+            return updated;
+        });
+        toast.success("All observations in this section marked as complete");
+    };
+
     const handleSubmitSheet = async (assignmentId) => {
         try {
             const assignment = acceptedOrders.find(a => a.id === assignmentId);
@@ -402,27 +432,42 @@ export default function VendorOrderProgressPage() {
                                                                                     <span className="text-slate-600">— {rDesc}</span>
                                                                                 )}
                                                                             </div>
-                                                                            <button 
-                                                                                type="button"
-                                                                                onClick={(e) => {
-                                                                                    e.preventDefault();
-                                                                                    const isSkipped = assignment.vendorData?.[sIdx]?.[0]?.skipObservation;
-                                                                                    handleSkipObservation(assignment.id, sIdx, !isSkipped);
-                                                                                }}
-                                                                                className={`flex items-center gap-2 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all ${
-                                                                                    assignment.vendorData?.[sIdx]?.[0]?.skipObservation 
-                                                                                        ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200' 
-                                                                                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                                                                                }`}
-                                                                            >
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    className="rounded border-slate-300 w-3 h-3 cursor-pointer accent-amber-600"
-                                                                                    checked={assignment.vendorData?.[sIdx]?.[0]?.skipObservation || false}
-                                                                                    readOnly
-                                                                                />
-                                                                                {assignment.vendorData?.[sIdx]?.[0]?.skipObservation ? 'OBSERVATION SKIPPED' : 'SKIP OBSERVATION'}
-                                                                            </button>
+                                                                            <div className="flex items-center gap-2">
+                                                                                {!assignment.vendorData?.[sIdx]?.[0]?.skipObservation && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={(e) => {
+                                                                                            e.preventDefault();
+                                                                                            handleMarkAllSectionComplete(assignment.id, sIdx);
+                                                                                        }}
+                                                                                        className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all bg-green-50 border-green-300 text-green-800 hover:bg-green-100"
+                                                                                    >
+                                                                                        <CheckCircle2 className="h-3 w-3" />
+                                                                                        MARK ALL COMPLETE
+                                                                                    </button>
+                                                                                )}
+                                                                                <button 
+                                                                                    type="button"
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        const isSkipped = assignment.vendorData?.[sIdx]?.[0]?.skipObservation;
+                                                                                        handleSkipObservation(assignment.id, sIdx, !isSkipped);
+                                                                                    }}
+                                                                                    className={`flex items-center gap-2 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all ${
+                                                                                        assignment.vendorData?.[sIdx]?.[0]?.skipObservation 
+                                                                                            ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200' 
+                                                                                            : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                                                                                    }`}
+                                                                                >
+                                                                                    <input 
+                                                                                        type="checkbox" 
+                                                                                        className="rounded border-slate-300 w-3 h-3 cursor-pointer accent-amber-600"
+                                                                                        checked={assignment.vendorData?.[sIdx]?.[0]?.skipObservation || false}
+                                                                                        readOnly
+                                                                                    />
+                                                                                    {assignment.vendorData?.[sIdx]?.[0]?.skipObservation ? 'OBSERVATION SKIPPED' : 'SKIP OBSERVATION'}
+                                                                                </button>
+                                                                            </div>
                                                                         </div>
                                                                     </th>
                                                                 </tr>
