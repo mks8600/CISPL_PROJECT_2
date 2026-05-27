@@ -228,6 +228,7 @@ router.put('/:id/complete-with-revision', async (req, res) => {
           serialNo: section.serialNo || '',
           rows: revRows,
           vendorData: revSectionVData,
+          seriesType: vData[sIdx].seriesType || 'numeric',
         });
 
         let hasRepair = false, hasRS = false;
@@ -292,7 +293,10 @@ router.put('/:id/complete-with-revision', async (req, res) => {
       const revisionSheetData = {
         formData: { ...formData, rsNo: newRsNo },
         sections: revisionSections.map((rs, newSIdx) => {
-          revVData[newSIdx] = rs.vendorData;
+          revVData[newSIdx] = {
+            ...rs.vendorData,
+            seriesType: rs.seriesType
+          };
           return { serialNo: rs.serialNo, rows: rs.rows };
         }),
       };

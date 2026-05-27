@@ -33,6 +33,30 @@ function formatDate(dateStr) {
     }
 }
 
+function getColName(index) {
+    let columnName = "";
+    while (index >= 0) {
+        columnName = String.fromCharCode((index % 26) + 65) + columnName;
+        index = Math.floor(index / 26) - 1;
+    }
+    return columnName;
+}
+
+function generateObservationLabel(i, N, format) {
+    if (format === 'serial') {
+        return (i + 1).toString();
+    }
+    if (format === 'alphabetic') {
+        if (N === 1) return 'A-B';
+        const char1 = getColName(i);
+        const char2 = getColName((i + 1) % N);
+        return `${char1}-${char2}`;
+    }
+    // Default is 'numeric'
+    if (N === 1) return '0-1';
+    return `${i}-${(i + 1) === N ? 0 : i + 1}`;
+}
+
 export default function VendorOrderProgressPage() {
     const { user } = useAuth();
     const [acceptedOrders, setAcceptedOrders] = useState([]);
@@ -94,8 +118,9 @@ export default function VendorOrderProgressPage() {
                         const existingObs = newVendorData[sIdx][rIdx].observations || [];
                         const newObservations = [];
                         if (!isNaN(N) && N > 0 && N <= 100) {
+                            const format = newVendorData[sIdx].seriesType || 'numeric';
                             for (let i = 0; i < N; i++) {
-                                let label = N === 1 ? '0-1' : `${i}-${(i + 1) === N ? 0 : i + 1}`;
+                                let label = generateObservationLabel(i, N, format);
                                 newObservations.push({
                                     label,
                                     value: existingObs[i]?.value || '',
@@ -278,6 +303,42 @@ export default function VendorOrderProgressPage() {
             ? "All observations in this section marked as complete" 
             : "All observations in this section marked as pending"
         );
+    };
+
+    const handleSectionSeriesTypeChange = (assignmentId, sIdx, format) => {
+        setAcceptedOrders(prev => {
+            const updated = prev.map((a) => {
+                if (a.id === assignmentId) {
+                    const newVendorData = JSON.parse(JSON.stringify(a.vendorData || {}));
+                    if (!newVendorData[sIdx]) newVendorData[sIdx] = {};
+                    newVendorData[sIdx].seriesType = format;
+
+                    // Update existing observations labels in all rows of this section
+                    Object.keys(newVendorData[sIdx]).forEach(rIdx => {
+                        if (rIdx === 'seriesType') return;
+                        const rowData = newVendorData[sIdx][rIdx];
+                        if (rowData && rowData.observations && rowData.observations.length > 0) {
+                            const N = rowData.observations.length;
+                            rowData.observations.forEach((obs, i) => {
+                                obs.label = generateObservationLabel(i, N, format);
+                            });
+                        }
+                    });
+
+                    return { ...a, vendorData: newVendorData };
+                }
+                return a;
+            });
+            const changed = updated.find(a => a.id === assignmentId);
+            if (changed) {
+                debouncedSave(assignmentId, { 
+                    vendorData: changed.vendorData, 
+                    sectionStatuses: changed.sectionStatuses
+                });
+            }
+            return updated;
+        });
+        toast.success(`Observation label format changed to ${format === 'serial' ? 'Serial (1,2,3...)' : format === 'alphabetic' ? 'Alphabetical (A-B...)' : 'Numeric Range (0-1...)'}`);
     };
 
     const handleSubmitSheet = async (assignmentId) => {
@@ -474,48 +535,90 @@ export default function VendorOrderProgressPage() {
                                                                                     <span className="text-slate-600">— {rDesc}</span>
                                                                                 )}
                                                                             </div>
-                                                                            <div className="flex items-center gap-2">
-                                                                                {hasObservations && (
-                                                                                    <button
+                                                                            <div className="flex flex-col items-end gap-2">
+                                                                                {/* Series Format Selector */}
+                                                                                {assignment.submitted ? (
+                                                                                    <div className="text-[9px] font-semibold text-slate-500 bg-slate-100/80 px-2 py-0.5 rounded border border-slate-200 shadow-sm">
+                                                                                        Series: {
+                                                                                            (assignment.vendorData?.[sIdx]?.seriesType === 'serial') ? '1, 2, 3...' :
+                                                                                            (assignment.vendorData?.[sIdx]?.seriesType === 'alphabetic') ? 'A-B, B-C...' :
+                                                                                            '0-1, 1-2...'
+                                                                                        }
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div className="flex items-center gap-1.5 bg-slate-100 p-0.5 rounded border border-slate-200 shadow-sm">
+                                                                                        <span className="text-[9px] font-semibold text-slate-500 px-1.5 uppercase">Series:</span>
+                                                                                        {[
+                                                                                            { id: 'numeric', label: '0-1, 1-2...' },
+                                                                                            { id: 'alphabetic', label: 'A-B, B-C...' },
+                                                                                            { id: 'serial', label: '1, 2, 3...' }
+                                                                                        ].map((item) => {
+                                                                                            const active = (assignment.vendorData?.[sIdx]?.seriesType || 'numeric') === item.id;
+                                                                                            return (
+                                                                                                <button
+                                                                                                    key={item.id}
+                                                                                                    type="button"
+                                                                                                    onClick={(e) => {
+                                                                                                        e.preventDefault();
+                                                                                                        handleSectionSeriesTypeChange(assignment.id, sIdx, item.id);
+                                                                                                    }}
+                                                                                                    className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all ${
+                                                                                                        active 
+                                                                                                            ? 'bg-white text-slate-800 shadow-sm border border-slate-200' 
+                                                                                                            : 'text-slate-500 hover:text-slate-800 border border-transparent'
+                                                                                                    }`}
+                                                                                                >
+                                                                                                    {item.label}
+                                                                                                </button>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {/* Action Buttons */}
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {hasObservations && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.preventDefault();
+                                                                                                handleMarkAllSectionComplete(assignment.id, sIdx);
+                                                                                            }}
+                                                                                            disabled={assignment.submitted}
+                                                                                            className={`flex items-center gap-1 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                                                                allObservationsCompleted
+                                                                                                    ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                                                                                                    : 'bg-green-50 border-green-300 text-green-800 hover:bg-green-100'
+                                                                                            }`}
+                                                                                        >
+                                                                                            <CheckCircle2 className="h-3 w-3" />
+                                                                                            {allObservationsCompleted ? 'UNMARK ALL COMPLETE' : 'MARK ALL COMPLETE'}
+                                                                                        </button>
+                                                                                    )}
+                                                                                    <button 
                                                                                         type="button"
                                                                                         onClick={(e) => {
                                                                                             e.preventDefault();
-                                                                                            handleMarkAllSectionComplete(assignment.id, sIdx);
+                                                                                            const isSkipped = assignment.vendorData?.[sIdx]?.[0]?.skipObservation;
+                                                                                            handleSkipObservation(assignment.id, sIdx, !isSkipped);
                                                                                         }}
                                                                                         disabled={assignment.submitted}
-                                                                                        className={`flex items-center gap-1 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                                                            allObservationsCompleted
-                                                                                                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                                                                                                : 'bg-green-50 border-green-300 text-green-800 hover:bg-green-100'
+                                                                                        className={`flex items-center gap-2 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                                                            assignment.vendorData?.[sIdx]?.[0]?.skipObservation 
+                                                                                                ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200' 
+                                                                                                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
                                                                                         }`}
                                                                                     >
-                                                                                        <CheckCircle2 className="h-3 w-3" />
-                                                                                        {allObservationsCompleted ? 'UNMARK ALL COMPLETE' : 'MARK ALL COMPLETE'}
+                                                                                        <input 
+                                                                                            type="checkbox" 
+                                                                                            className="rounded border-slate-300 w-3 h-3 cursor-pointer accent-amber-600"
+                                                                                            checked={assignment.vendorData?.[sIdx]?.[0]?.skipObservation || false}
+                                                                                            disabled={assignment.submitted}
+                                                                                            readOnly
+                                                                                        />
+                                                                                        {assignment.vendorData?.[sIdx]?.[0]?.skipObservation ? 'OBSERVATION SKIPPED' : 'SKIP OBSERVATION'}
                                                                                     </button>
-                                                                                )}
-                                                                                <button 
-                                                                                    type="button"
-                                                                                    onClick={(e) => {
-                                                                                        e.preventDefault();
-                                                                                        const isSkipped = assignment.vendorData?.[sIdx]?.[0]?.skipObservation;
-                                                                                        handleSkipObservation(assignment.id, sIdx, !isSkipped);
-                                                                                    }}
-                                                                                    disabled={assignment.submitted}
-                                                                                    className={`flex items-center gap-2 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                                                        assignment.vendorData?.[sIdx]?.[0]?.skipObservation 
-                                                                                            ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200' 
-                                                                                            : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                                                                                    }`}
-                                                                                >
-                                                                                    <input 
-                                                                                        type="checkbox" 
-                                                                                        className="rounded border-slate-300 w-3 h-3 cursor-pointer accent-amber-600"
-                                                                                        checked={assignment.vendorData?.[sIdx]?.[0]?.skipObservation || false}
-                                                                                        disabled={assignment.submitted}
-                                                                                        readOnly
-                                                                                    />
-                                                                                    {assignment.vendorData?.[sIdx]?.[0]?.skipObservation ? 'OBSERVATION SKIPPED' : 'SKIP OBSERVATION'}
-                                                                                </button>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     </th>
