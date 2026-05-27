@@ -385,6 +385,7 @@ export default function CompanyOrderStatusPage() {
                                                                                                         <SelectItem value="Repair">Repair</SelectItem>
                                                                                                         <SelectItem value="Retake">Retake</SelectItem>
                                                                                                         <SelectItem value="Missing">Missing</SelectItem>
+                                                                                                        <SelectItem value="Porosity">Porosity</SelectItem>
                                                                                                     </SelectContent>
                                                                                                 </Select>
                                                                                             </td>
@@ -431,6 +432,7 @@ export default function CompanyOrderStatusPage() {
                                                                                                     <SelectItem value="Repair">Repair</SelectItem>
                                                                                                     <SelectItem value="Retake">Retake</SelectItem>
                                                                                                     <SelectItem value="Missing">Missing</SelectItem>
+                                                                                                    <SelectItem value="Porosity">Porosity</SelectItem>
                                                                                                 </SelectContent>
                                                                                             </Select>
                                                                                         </td>

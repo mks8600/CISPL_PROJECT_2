@@ -550,14 +550,15 @@ export default function VendorOrderProgressPage() {
                                                                                                 <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
                                                                                                     <SelectValue placeholder="—" />
                                                                                                 </SelectTrigger>
-                                                                                                <SelectContent>
-                                                                                                    <SelectItem value="none" className="text-slate-400 italic">Deselect</SelectItem>
-                                                                                                    <SelectItem value="OK">OK</SelectItem>
-                                                                                                    <SelectItem value="R/S">R/S</SelectItem>
-                                                                                                    <SelectItem value="Repair">Repair</SelectItem>
-                                                                                                    <SelectItem value="Retake">Retake</SelectItem>
-                                                                                                    <SelectItem value="Missing">Missing</SelectItem>
-                                                                                                </SelectContent>
+                                                                                                    <SelectContent>
+                                                                                                        <SelectItem value="none" className="text-slate-400 italic">Deselect</SelectItem>
+                                                                                                        <SelectItem value="OK">OK</SelectItem>
+                                                                                                        <SelectItem value="R/S">R/S</SelectItem>
+                                                                                                        <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                        <SelectItem value="Retake">Retake</SelectItem>
+                                                                                                        <SelectItem value="Missing">Missing</SelectItem>
+                                                                                                        <SelectItem value="Porosity">Porosity</SelectItem>
+                                                                                                    </SelectContent>
                                                                                             </Select>
                                                                                         </td>
                                                                                         <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white w-48">
@@ -620,14 +621,15 @@ export default function VendorOrderProgressPage() {
                                                                                                 <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
                                                                                                     <SelectValue placeholder="—" />
                                                                                                 </SelectTrigger>
-                                                                                                <SelectContent>
-                                                                                                    <SelectItem value="none" className="text-slate-400 italic">Deselect</SelectItem>
-                                                                                                    <SelectItem value="OK">OK</SelectItem>
-                                                                                                    <SelectItem value="R/S">R/S</SelectItem>
-                                                                                                    <SelectItem value="Repair">Repair</SelectItem>
-                                                                                                    <SelectItem value="Retake">Retake</SelectItem>
-                                                                                                    <SelectItem value="Missing">Missing</SelectItem>
-                                                                                                </SelectContent>
+                                                                                                    <SelectContent>
+                                                                                                        <SelectItem value="none" className="text-slate-400 italic">Deselect</SelectItem>
+                                                                                                        <SelectItem value="OK">OK</SelectItem>
+                                                                                                        <SelectItem value="R/S">R/S</SelectItem>
+                                                                                                        <SelectItem value="Repair">Repair</SelectItem>
+                                                                                                        <SelectItem value="Retake">Retake</SelectItem>
+                                                                                                        <SelectItem value="Missing">Missing</SelectItem>
+                                                                                                        <SelectItem value="Porosity">Porosity</SelectItem>
+                                                                                                    </SelectContent>
                                                                                             </Select>
                                                                                         </td>
                                                                                         <td className="border border-slate-400 p-0 bg-white">
