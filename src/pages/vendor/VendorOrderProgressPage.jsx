@@ -223,6 +223,30 @@ export default function VendorOrderProgressPage() {
     };
 
     const handleMarkAllSectionComplete = (assignmentId, sIdx) => {
+        const assignment = acceptedOrders.find(a => a.id === assignmentId);
+        if (!assignment) return;
+
+        let allComplete = true;
+        let hasObs = false;
+        if (assignment.vendorData?.[sIdx]) {
+            Object.keys(assignment.vendorData[sIdx]).forEach(rIdx => {
+                const obs = assignment.vendorData[sIdx][rIdx]?.observations || [];
+                if (obs.length > 0) {
+                    hasObs = true;
+                    if (obs.some(o => o.status !== 'complete')) {
+                        allComplete = false;
+                    }
+                }
+            });
+        }
+
+        if (!hasObs) {
+            toast.error("Please enter a spot number first to create observations");
+            return;
+        }
+
+        const targetStatus = allComplete ? 'pending' : 'complete';
+
         setAcceptedOrders(prev => {
             const updated = prev.map((a) => {
                 if (a.id === assignmentId) {
@@ -231,7 +255,7 @@ export default function VendorOrderProgressPage() {
                         Object.keys(newVendorData[sIdx]).forEach(rIdx => {
                             if (newVendorData[sIdx][rIdx] && newVendorData[sIdx][rIdx].observations) {
                                 newVendorData[sIdx][rIdx].observations.forEach(obs => {
-                                    obs.status = 'complete';
+                                    obs.status = targetStatus;
                                 });
                             }
                         });
@@ -249,7 +273,11 @@ export default function VendorOrderProgressPage() {
             }
             return updated;
         });
-        toast.success("All observations in this section marked as complete");
+
+        toast.success(targetStatus === 'complete' 
+            ? "All observations in this section marked as complete" 
+            : "All observations in this section marked as pending"
+        );
     };
 
     const handleSubmitSheet = async (assignmentId) => {
@@ -389,6 +417,20 @@ export default function VendorOrderProgressPage() {
                                                 {assignment.sheet.sections.map((section, sIdx) => {
                                                     const rStatus = assignment.reviewStatuses[sIdx];
                                                     const rDesc = assignment.reviewDescriptions[sIdx] || '';
+                                                    
+                                                    let hasObservations = false;
+                                                    let allObservationsCompleted = true;
+                                                    if (assignment.vendorData?.[sIdx]) {
+                                                        Object.keys(assignment.vendorData[sIdx]).forEach(rIdx => {
+                                                            const obs = assignment.vendorData[sIdx][rIdx]?.observations || [];
+                                                            if (obs.length > 0) {
+                                                                hasObservations = true;
+                                                                if (obs.some(o => o.status !== 'complete')) {
+                                                                    allObservationsCompleted = false;
+                                                                }
+                                                            }
+                                                        });
+                                                    }
                                                     return (
                                                         <table key={sIdx} className="w-full border-collapse border border-slate-400 text-sm">
                                                             <thead>
@@ -433,17 +475,21 @@ export default function VendorOrderProgressPage() {
                                                                                 )}
                                                                             </div>
                                                                             <div className="flex items-center gap-2">
-                                                                                {!assignment.vendorData?.[sIdx]?.[0]?.skipObservation && (
+                                                                                {hasObservations && (
                                                                                     <button
                                                                                         type="button"
                                                                                         onClick={(e) => {
                                                                                             e.preventDefault();
                                                                                             handleMarkAllSectionComplete(assignment.id, sIdx);
                                                                                         }}
-                                                                                        className="flex items-center gap-1 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all bg-green-50 border-green-300 text-green-800 hover:bg-green-100"
+                                                                                        className={`flex items-center gap-1 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all ${
+                                                                                            allObservationsCompleted
+                                                                                                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                                                                                                : 'bg-green-50 border-green-300 text-green-800 hover:bg-green-100'
+                                                                                        }`}
                                                                                     >
                                                                                         <CheckCircle2 className="h-3 w-3" />
-                                                                                        MARK ALL COMPLETE
+                                                                                        {allObservationsCompleted ? 'UNMARK ALL COMPLETE' : 'MARK ALL COMPLETE'}
                                                                                     </button>
                                                                                 )}
                                                                                 <button 
