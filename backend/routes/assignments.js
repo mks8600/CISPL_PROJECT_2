@@ -234,7 +234,7 @@ router.put('/:id/complete-with-revision', async (req, res) => {
         for (let rIdx = 0; rIdx < rows.length; rIdx++) {
           const rowVData = (vData[sIdx] && vData[sIdx][rIdx]) || {};
           for (const obs of (rowVData.observations || [])) {
-            if (obs.companyValue === 'Repair') hasRepair = true;
+            if (obs.companyValue === 'Repair' || obs.companyValue === 'Porosity') hasRepair = true;
             if (obs.companyValue === 'R/S') hasRS = true;
           }
         }
@@ -245,7 +245,7 @@ router.put('/:id/complete-with-revision', async (req, res) => {
         for (let rIdx = 0; rIdx < rows.length; rIdx++) {
           const rowVData = (vData[sIdx] && vData[sIdx][rIdx]) || {};
           for (const obs of (rowVData.observations || [])) {
-            if (obs.companyValue === 'Repair') hasRepair = true;
+            if (obs.companyValue === 'Repair' || obs.companyValue === 'Porosity') hasRepair = true;
             if (obs.companyValue === 'R/S') hasRS = true;
           }
         }

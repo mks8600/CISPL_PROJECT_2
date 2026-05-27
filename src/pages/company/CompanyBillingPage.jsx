@@ -310,7 +310,7 @@ export default function CompanyBillingPage() {
                                                                 <td rowSpan={obsCount} className="border-r border-slate-300 px-3 py-2 text-center font-medium text-slate-700 align-top">{row.filmSize}</td>
                                                             </>)}
                                                             <td className="border-r border-slate-200 px-3 py-1.5 text-center text-xs font-medium text-slate-600 w-16">{o.label}</td>
-                                                            <td className={`px-3 py-1.5 text-center text-xs font-bold w-20 ${o.companyValue === 'OK' ? 'text-green-700' : o.companyValue === 'Repair' ? 'text-red-700' : o.companyValue === 'R/S' ? 'text-orange-700' : 'text-slate-700'}`}>{o.companyValue}</td>
+                                                            <td className={`px-3 py-1.5 text-center text-xs font-bold w-20 ${o.companyValue === 'OK' ? 'text-green-700' : o.companyValue === 'Repair' ? 'text-red-700' : o.companyValue === 'R/S' ? 'text-orange-700' : o.companyValue === 'Porosity' ? 'text-purple-700' : 'text-slate-700'}`}>{o.companyValue}</td>
                                                         </tr>
                                                     )) : (
                                                         <tr key={rIdx} className="border-b border-slate-200 hover:bg-slate-50/50">

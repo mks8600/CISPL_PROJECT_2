@@ -161,7 +161,7 @@ export default function CompanyOrderStatusPage() {
         // If there are Retake/Missing spots, confirm with the user
         if (hasRetakeOrMissing) {
             const confirmed = window.confirm(
-                "Some spots are marked as Retake/Missing. These spots will be extracted into a new revision sheet and sent to Pending Work.\n\nThe remaining OK/Repair/R/S spots will move to Completed Works.\n\nProceed?"
+                "Some spots are marked as Retake/Missing. These spots will be extracted into a new revision sheet and sent to Pending Work.\n\nThe remaining OK/Repair/R/S/Porosity spots will move to Completed Works.\n\nProceed?"
             );
             if (!confirmed) return;
         }
