@@ -482,7 +482,8 @@ export default function VendorOrderProgressPage() {
                                                                                             e.preventDefault();
                                                                                             handleMarkAllSectionComplete(assignment.id, sIdx);
                                                                                         }}
-                                                                                        className={`flex items-center gap-1 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all ${
+                                                                                        disabled={assignment.submitted}
+                                                                                        className={`flex items-center gap-1 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                                                                                             allObservationsCompleted
                                                                                                 ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
                                                                                                 : 'bg-green-50 border-green-300 text-green-800 hover:bg-green-100'
@@ -499,7 +500,8 @@ export default function VendorOrderProgressPage() {
                                                                                         const isSkipped = assignment.vendorData?.[sIdx]?.[0]?.skipObservation;
                                                                                         handleSkipObservation(assignment.id, sIdx, !isSkipped);
                                                                                     }}
-                                                                                    className={`flex items-center gap-2 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all ${
+                                                                                    disabled={assignment.submitted}
+                                                                                    className={`flex items-center gap-2 px-3 py-1 text-[10px] font-bold rounded border shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                                                                                         assignment.vendorData?.[sIdx]?.[0]?.skipObservation 
                                                                                             ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200' 
                                                                                             : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
@@ -509,6 +511,7 @@ export default function VendorOrderProgressPage() {
                                                                                         type="checkbox" 
                                                                                         className="rounded border-slate-300 w-3 h-3 cursor-pointer accent-amber-600"
                                                                                         checked={assignment.vendorData?.[sIdx]?.[0]?.skipObservation || false}
+                                                                                        disabled={assignment.submitted}
                                                                                         readOnly
                                                                                     />
                                                                                     {assignment.vendorData?.[sIdx]?.[0]?.skipObservation ? 'OBSERVATION SKIPPED' : 'SKIP OBSERVATION'}
@@ -547,8 +550,9 @@ export default function VendorOrderProgressPage() {
                                                                                 </td>
                                                                                 <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white">
                                                                                     <input type="number"
-                                                                                        className="w-full h-full min-h-[36px] p-2 text-center border-0 outline-none ring-0 appearance-none m-0"
+                                                                                        className="w-full h-full min-h-[36px] p-2 text-center border-0 outline-none ring-0 appearance-none m-0 disabled:bg-slate-50 disabled:text-slate-500"
                                                                                         value={vData.spotNo}
+                                                                                        disabled={assignment.submitted}
                                                                                         onChange={e => handleVendorDataChange(assignment.id, sIdx, rIdx, 'spotNo', e.target.value)} />
                                                                                 </td>
                                                                                 <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white">
@@ -556,8 +560,9 @@ export default function VendorOrderProgressPage() {
                                                                                         <Select
                                                                                             value={vData.filmSize || ''}
                                                                                             onValueChange={val => handleVendorDataChange(assignment.id, sIdx, rIdx, 'filmSize', val)}
+                                                                                            disabled={assignment.submitted}
                                                                                         >
-                                                                                            <SelectTrigger className="w-full h-full min-h-[36px] border-0 rounded-none shadow-none focus:ring-0 px-2 text-center justify-center font-medium bg-transparent overflow-hidden">
+                                                                                            <SelectTrigger className="w-full h-full min-h-[36px] border-0 rounded-none shadow-none focus:ring-0 px-2 text-center justify-center font-medium bg-transparent overflow-hidden disabled:opacity-50">
                                                                                                 <SelectValue placeholder="Size" />
                                                                                             </SelectTrigger>
                                                                                             <SelectContent>
@@ -568,8 +573,9 @@ export default function VendorOrderProgressPage() {
                                                                                         </Select>
                                                                                     ) : (
                                                                                         <input type="text"
-                                                                                            className="w-full h-full min-h-[36px] p-2 text-center border-0 outline-none ring-0 w-20"
+                                                                                            className="w-full h-full min-h-[36px] p-2 text-center border-0 outline-none ring-0 w-20 disabled:bg-slate-50 disabled:text-slate-500"
                                                                                             value={vData.filmSize || ''}
+                                                                                            disabled={assignment.submitted}
                                                                                             onChange={e => handleVendorDataChange(assignment.id, sIdx, rIdx, 'filmSize', e.target.value)}
                                                                                             placeholder="Size" />
                                                                                     )}
@@ -581,8 +587,9 @@ export default function VendorOrderProgressPage() {
                                                                                         <td className="border border-slate-400 p-0 align-top bg-white w-16">
                                                                                             <input
                                                                                                 type="text"
-                                                                                                className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none ring-0 text-xs font-medium text-slate-800"
+                                                                                                className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none ring-0 text-xs font-medium text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
                                                                                                 value={vData.observations[0].label || ''}
+                                                                                                disabled={assignment.submitted}
                                                                                                 onChange={e => handleObservationLabel(assignment.id, sIdx, rIdx, 0, e.target.value)}
                                                                                                 placeholder="Obs."
                                                                                             />
@@ -591,9 +598,9 @@ export default function VendorOrderProgressPage() {
                                                                                             <Select
                                                                                                 value={vData.observations[0].value || ''}
                                                                                                 onValueChange={val => handleObservationValue(assignment.id, sIdx, rIdx, 0, val)}
-                                                                                                disabled={vData.skipObservation}
+                                                                                                disabled={vData.skipObservation || assignment.submitted}
                                                                                             >
-                                                                                                <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
+                                                                                                <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs disabled:opacity-50">
                                                                                                     <SelectValue placeholder="—" />
                                                                                                 </SelectTrigger>
                                                                                                     <SelectContent>
@@ -609,8 +616,9 @@ export default function VendorOrderProgressPage() {
                                                                                         </td>
                                                                                         <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white w-48">
                                                                                             <textarea
-                                                                                                className="w-full h-full min-h-[36px] p-2 border-0 outline-none resize-none text-sm"
+                                                                                                className="w-full h-full min-h-[36px] p-2 border-0 outline-none resize-none text-sm disabled:bg-slate-50 disabled:text-slate-500"
                                                                                                 value={vData.remark !== undefined ? vData.remark : (row.remark || '')}
+                                                                                                disabled={assignment.submitted}
                                                                                                 onChange={e => handleVendorDataChange(assignment.id, sIdx, rIdx, 'remark', e.target.value)}
                                                                                                 placeholder="Add remark..."
                                                                                             />
@@ -618,7 +626,8 @@ export default function VendorOrderProgressPage() {
                                                                                         <td className="border border-slate-400 p-0 bg-white">
                                                                                             <button
                                                                                                 onClick={() => handleObservationStatus(assignment.id, sIdx, rIdx, 0, vData.observations[0].status === 'complete' ? 'pending' : 'complete')}
-                                                                                                className={`w-full h-full min-h-[32px] text-[10px] font-bold px-1 transition-colors ${vData.observations[0].status === 'complete' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-green-100 hover:bg-green-200 text-green-800'}`}>
+                                                                                                disabled={assignment.submitted}
+                                                                                                className={`w-full h-full min-h-[32px] text-[10px] font-bold px-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${vData.observations[0].status === 'complete' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-green-100 hover:bg-green-200 text-green-800'}`}>
                                                                                                 {vData.observations[0].status === 'complete' ? 'MARK PENDING' : 'MARK COMPLETE'}
                                                                                             </button>
                                                                                         </td>
@@ -632,8 +641,9 @@ export default function VendorOrderProgressPage() {
                                                                                         <td className="border border-slate-400 px-2 py-1 bg-white w-20 text-slate-300 text-center text-xs">N/A</td>
                                                                                         <td rowSpan={obsCount} className="border border-slate-400 p-0 align-top bg-white w-48">
                                                                                             <textarea
-                                                                                                className="w-full h-full min-h-[36px] p-2 border-0 outline-none resize-none text-sm"
+                                                                                                className="w-full h-full min-h-[36px] p-2 border-0 outline-none resize-none text-sm disabled:bg-slate-50 disabled:text-slate-500"
                                                                                                 value={vData.remark !== undefined ? vData.remark : (row.remark || '')}
+                                                                                                disabled={assignment.submitted}
                                                                                                 onChange={e => handleVendorDataChange(assignment.id, sIdx, rIdx, 'remark', e.target.value)}
                                                                                                 placeholder="Add remark..."
                                                                                             />
@@ -652,8 +662,9 @@ export default function VendorOrderProgressPage() {
                                                                                         <td className="border border-slate-400 p-0 align-top bg-white w-16">
                                                                                             <input
                                                                                                 type="text"
-                                                                                                className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none ring-0 text-xs font-medium text-slate-800"
+                                                                                                className="w-full h-full min-h-[32px] p-1 text-center border-0 outline-none ring-0 text-xs font-medium text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
                                                                                                 value={obs.label || ''}
+                                                                                                disabled={assignment.submitted}
                                                                                                 onChange={e => handleObservationLabel(assignment.id, sIdx, rIdx, obsIdx, e.target.value)}
                                                                                                 placeholder="Obs."
                                                                                             />
@@ -662,9 +673,9 @@ export default function VendorOrderProgressPage() {
                                                                                             <Select
                                                                                                 value={obs.value || ''}
                                                                                                 onValueChange={val => handleObservationValue(assignment.id, sIdx, rIdx, obsIdx, val)}
-                                                                                                disabled={vData.skipObservation}
+                                                                                                disabled={vData.skipObservation || assignment.submitted}
                                                                                             >
-                                                                                                <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs">
+                                                                                                <SelectTrigger className="w-full h-full min-h-[32px] border-0 rounded-none shadow-none focus:ring-0 px-1 text-center justify-center font-medium bg-transparent overflow-hidden text-xs disabled:opacity-50">
                                                                                                     <SelectValue placeholder="—" />
                                                                                                 </SelectTrigger>
                                                                                                     <SelectContent>
@@ -681,7 +692,8 @@ export default function VendorOrderProgressPage() {
                                                                                         <td className="border border-slate-400 p-0 bg-white">
                                                                                             <button
                                                                                                 onClick={() => handleObservationStatus(assignment.id, sIdx, rIdx, obsIdx, obs.status === 'complete' ? 'pending' : 'complete')}
-                                                                                                className={`w-full h-full min-h-[32px] text-[10px] font-bold px-1 transition-colors ${obs.status === 'complete' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-green-100 hover:bg-green-200 text-green-800'}`}>
+                                                                                                disabled={assignment.submitted}
+                                                                                                className={`w-full h-full min-h-[32px] text-[10px] font-bold px-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${obs.status === 'complete' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-green-100 hover:bg-green-200 text-green-800'}`}>
                                                                                                 {obs.status === 'complete' ? 'MARK PENDING' : 'MARK COMPLETE'}
                                                                                             </button>
                                                                                         </td>
