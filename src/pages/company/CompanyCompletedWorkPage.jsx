@@ -37,7 +37,7 @@ export default function CompanyCompletedWorkPage() {
         allSections.forEach(({ section, vDataMap }) => {
             (section.rows || []).forEach((row, rIdx) => {
                 const vData = vDataMap?.[rIdx] || {};
-                const obsStr = (vData.observations || []).map(o => `${o.label}:${o.value||'N/A'}`).join(' | ');
+                const obsStr = (vData.observations || []).map(o => `${o.label}: Vendor=${o.value||'N/A'}, Co=${o.companyValue||'N/A'}`).join(' | ');
                 const line = [
                     `"${fd.jobNo || ''}"`,
                     `"${formatDate(fd.date)}"`,

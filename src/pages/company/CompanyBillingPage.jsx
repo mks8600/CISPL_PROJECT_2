@@ -61,7 +61,7 @@ export default function CompanyBillingPage() {
         const rows = billingResult.detailedRows || [];
         if (rows.length === 0) return;
         let csv = 'Status Summary\n';
-        csv += `OK,${billingResult.statusCounts?.OK || 0}\nRepair,${billingResult.statusCounts?.Repair || 0}\nR/S,${billingResult.statusCounts?.['R/S'] || 0}\n\n`;
+        csv += `OK,${billingResult.statusCounts?.OK || 0}\nRepair,${billingResult.statusCounts?.Repair || 0}\nR/S,${billingResult.statusCounts?.['R/S'] || 0}\nPorosity,${billingResult.statusCounts?.Porosity || 0}\n\n`;
         csv += 'Film Size Summary\n';
         csv += 'Film Size,Total Spots,Price per Spot,Total Amount\n';
         let grandTotal = 0;
@@ -104,7 +104,7 @@ export default function CompanyBillingPage() {
         </style></head><body>`);
         win.document.write(`<h1>Billing Report</h1>`);
         if (startDate || endDate) win.document.write(`<p>Period: ${formatDate(startDate) || 'Start'} — ${formatDate(endDate) || 'End'}</p>`);
-        win.document.write(`<div class="status-row"><span class="status-item">OK: ${billingResult.statusCounts?.OK || 0}</span><span class="status-item">Repair: ${billingResult.statusCounts?.Repair || 0}</span><span class="status-item">R/S: ${billingResult.statusCounts?.['R/S'] || 0}</span></div>`);
+        win.document.write(`<div class="status-row"><span class="status-item">OK: ${billingResult.statusCounts?.OK || 0}</span><span class="status-item">Repair: ${billingResult.statusCounts?.Repair || 0}</span><span class="status-item">R/S: ${billingResult.statusCounts?.['R/S'] || 0}</span><span class="status-item">Porosity: ${billingResult.statusCounts?.Porosity || 0}</span></div>`);
         win.document.write(`<h2>Film Size Summary</h2><table><tr><th>Film Size</th><th>Total Spots</th><th>Price/Spot</th><th>Amount</th></tr>`);
         let gt = 0;
         Object.entries(billingResult.filmSizeTotals).forEach(([s, t]) => {
@@ -182,7 +182,7 @@ export default function CompanyBillingPage() {
 
             {/* Status Counts */}
             {hasData && (
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                     <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center justify-between">
                         <div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg text-green-700"><CheckCircle2 className="h-5 w-5" /></div><span className="font-semibold text-green-800">OK</span></div>
                         <span className="text-2xl font-bold text-green-900">{billingResult.statusCounts?.OK || 0}</span>
@@ -194,6 +194,10 @@ export default function CompanyBillingPage() {
                     <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center justify-between">
                         <div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg text-orange-700"><RefreshCcw className="h-5 w-5" /></div><span className="font-semibold text-orange-800">R/S</span></div>
                         <span className="text-2xl font-bold text-orange-900">{billingResult.statusCounts?.['R/S'] || 0}</span>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg text-purple-700"><FileText className="h-5 w-5" /></div><span className="font-semibold text-purple-800">Porosity</span></div>
+                        <span className="text-2xl font-bold text-purple-900">{billingResult.statusCounts?.Porosity || 0}</span>
                     </div>
                 </div>
             )}
