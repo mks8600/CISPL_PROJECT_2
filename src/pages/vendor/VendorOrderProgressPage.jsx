@@ -20,6 +20,7 @@ function debouncedSave(assignmentId, payload) {
     debounceTimers[assignmentId] = setTimeout(() => {
         vendorOrdersApi.saveData(assignmentId, payload).catch(err => {
             console.error('Failed to sync vendor data', err);
+            toast.error('Failed to save data. Please check your connection and try again.');
         });
     }, 1000);
 }

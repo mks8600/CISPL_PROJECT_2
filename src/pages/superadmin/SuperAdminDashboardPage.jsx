@@ -4,6 +4,7 @@ import { Building2, Users, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { dashboardApi } from '@/lib/api/client';
+import { toast } from 'sonner';
 
 export default function SuperAdminDashboardPage() {
   const [totalOrgs, setTotalOrgs] = useState(0);
@@ -15,7 +16,9 @@ export default function SuperAdminDashboardPage() {
         const data = await dashboardApi.superadmin();
         setTotalOrgs(data.totalCompanies || 0);
         setTotalVendors(data.totalVendors || 0);
-      } catch {
+      } catch (err) {
+        console.error('Failed to load dashboard', err);
+        toast.error('Failed to load dashboard data. Please refresh the page.');
         setTotalOrgs(0);
         setTotalVendors(0);
       }

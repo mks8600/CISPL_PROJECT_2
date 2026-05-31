@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calculator, Download, Calendar, Loader2, CheckCircle2, Wrench, RefreshCcw, Printer, FileText } from 'lucide-react';
+import { Calculator, Download, Calendar, Loader2, CheckCircle2, Wrench, RefreshCcw, Printer, FileText, Search, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { billingApi } from '@/lib/api/client';
 
@@ -12,6 +12,14 @@ function formatDate(dateStr) {
     if (!dateStr) return '';
     try { return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
     catch { return dateStr; }
+}
+
+function getLocalDateString(date) {
+    if (!date) return '';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
 export default function CompanyBillingPage() {
@@ -27,23 +35,49 @@ export default function CompanyBillingPage() {
     });
 
     const [pricingConfig, setPricingConfig] = useState({});
-    const [startDate, setStartDate] = useState('');
+    const [startDate, setStartDate] = useState(() => getLocalDateString(new Date()));
     const [endDate, setEndDate] = useState('');
     const [selectedVendor, setSelectedVendor] = useState('all');
     const [selectedJobNo, setSelectedJobNo] = useState('all');
     const [groupBy, setGroupBy] = useState('date');
+    const [hasLoaded, setHasLoaded] = useState(false);
 
-    useEffect(() => { loadData(); }, [user?.companyId, startDate, endDate, selectedVendor, selectedJobNo]);
-
-    const loadData = async () => {
+    const loadData = async (overrideStart, overrideEnd) => {
         setLoading(true);
         try {
-            const result = await billingApi.getSummary({ startDate, endDate, vendorId: selectedVendor, jobNo: selectedJobNo });
+            const start = typeof overrideStart === 'string' ? overrideStart : startDate;
+            const end = typeof overrideEnd === 'string' ? overrideEnd : endDate;
+            const result = await billingApi.getSummary({ startDate: start, endDate: end, vendorId: selectedVendor, jobNo: selectedJobNo });
             setBillingResult(result);
+            setHasLoaded(true);
         } catch (err) {
             console.error('Failed to load billing data', err);
             toast.error('Failed to load billing summary');
         } finally { setLoading(false); }
+    };
+
+    const handleShortcut = async (type) => {
+        const today = new Date();
+        let start = '';
+        let end = '';
+
+        if (type === 'today') {
+            start = getLocalDateString(today);
+            end = start;
+        } else if (type === 'week') {
+            const day = today.getDay();
+            const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+            const monday = new Date(today.setDate(diff));
+            start = getLocalDateString(monday);
+            end = getLocalDateString(new Date());
+        } else if (type === 'month') {
+            start = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+            end = getLocalDateString(today);
+        }
+
+        setStartDate(start);
+        setEndDate(end);
+        await loadData(start, end);
     };
 
     const groupedRows = () => {
@@ -134,7 +168,7 @@ export default function CompanyBillingPage() {
         win.print();
     };
 
-    const handleClearFilters = () => { setStartDate(''); setEndDate(''); setSelectedVendor('all'); setSelectedJobNo('all'); };
+    const handleClearFilters = () => { setStartDate(getLocalDateString(new Date())); setEndDate(''); setSelectedVendor('all'); setSelectedJobNo('all'); };
     const groups = groupedRows();
     const hasData = (billingResult.detailedRows || []).length > 0 || Object.keys(billingResult.filmSizeTotals).length > 0;
 
@@ -152,6 +186,14 @@ export default function CompanyBillingPage() {
             <Card>
                 <CardHeader><CardTitle className="text-lg">Filter Data</CardTitle><CardDescription>Filter by date, vendor, or job number.</CardDescription></CardHeader>
                 <CardContent>
+                    <div className="flex flex-wrap gap-2 mb-4 items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <span className="text-xs font-semibold text-slate-500 flex items-center gap-1 ml-1">
+                            <Clock className="h-3.5 w-3.5 text-blue-500" /> Date Shortcuts:
+                        </span>
+                        <Button variant="outline" size="sm" onClick={() => handleShortcut('today')} disabled={loading} className="h-7 px-3 text-xs bg-white hover:bg-blue-50 hover:text-blue-700 border-slate-200 shadow-xs hover:border-blue-200">Today</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleShortcut('week')} disabled={loading} className="h-7 px-3 text-xs bg-white hover:bg-blue-50 hover:text-blue-700 border-slate-200 shadow-xs hover:border-blue-200">This Week</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleShortcut('month')} disabled={loading} className="h-7 px-3 text-xs bg-white hover:bg-blue-50 hover:text-blue-700 border-slate-200 shadow-xs hover:border-blue-200">This Month</Button>
+                    </div>
                     <div className="flex flex-col md:flex-row gap-4 items-end">
                         <div className="space-y-2 flex-1 relative">
                             <Label htmlFor="startDate">From Date</Label>
@@ -175,10 +217,36 @@ export default function CompanyBillingPage() {
                                 {billingResult.jobNos.map(j => <option key={j} value={j}>{j}</option>)}
                             </select>
                         </div>
-                        <div className="flex-none"><Button variant="outline" onClick={handleClearFilters} className="h-10 border-slate-300 hover:bg-slate-50">Clear</Button></div>
+                        <div className="flex-none flex gap-2">
+                            <Button onClick={() => loadData()} disabled={loading} className="h-10 bg-blue-600 hover:bg-blue-700 text-white gap-2">
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                {loading ? 'Loading...' : 'Load Data'}
+                            </Button>
+                            <Button variant="outline" onClick={handleClearFilters} className="h-10 border-slate-300 hover:bg-slate-50">Clear</Button>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Prompt to load */}
+            {!hasLoaded && !loading && (
+                <Card className="border-blue-200 bg-blue-50/50">
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                        <Search className="h-12 w-12 text-blue-300 mb-4" />
+                        <p className="text-lg font-semibold text-slate-700">Set your filters and click "Load Data"</p>
+                        <p className="text-sm text-slate-500 mt-1">Data will not be fetched until you click the Load Data button to save bandwidth.</p>
+                    </CardContent>
+                </Card>
+            )}
+
+            {loading && (
+                <Card>
+                    <CardContent className="flex items-center justify-center py-12 gap-3">
+                        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                        <span className="text-slate-600 font-medium">Loading billing data...</span>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Status Counts */}
             {hasData && (

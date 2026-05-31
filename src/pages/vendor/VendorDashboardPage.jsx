@@ -32,6 +32,7 @@ export default function VendorDashboardPage() {
                 setFilmSizes(filmsRes);
             } catch (err) {
                 console.error('Failed to load dashboard', err);
+                toast.error('Failed to load dashboard data. Please refresh the page.');
             }
         };
         load();

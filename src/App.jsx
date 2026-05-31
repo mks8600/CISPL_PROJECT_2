@@ -26,6 +26,7 @@ import SuperAdminLoginPage from './pages/superadmin/SuperAdminLoginPage';
 import SuperAdminDashboardPage from './pages/superadmin/SuperAdminDashboardPage';
 import SuperAdminOrganizationsPage from './pages/superadmin/SuperAdminOrganizationsPage';
 import SuperAdminVendorsPage from './pages/superadmin/SuperAdminVendorsPage';
+import NetworkStatus from './components/NetworkStatus';
 
 function App() {
   return (
@@ -64,6 +65,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <NetworkStatus />
         <Toaster position="top-right" richColors />
       </AuthProvider>
     </HashRouter>

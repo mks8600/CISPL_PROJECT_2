@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, CheckCircle2, Printer, Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { assignmentsApi } from '@/lib/api/client';
 
@@ -118,6 +119,7 @@ export default function CompanyCompletedWorkPage() {
             setCompletedItems(formattedCompleted);
         } catch (err) {
             console.error('Failed to load completed assignments', err);
+            toast.error('Failed to load completed assignments. Please refresh the page.');
         }
     };
 
