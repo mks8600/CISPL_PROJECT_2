@@ -9,10 +9,48 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { TrendingUp, ChevronDown, ChevronUp, Clock, CheckCircle2, CircleDot, SendHorizonal, RotateCcw, Wrench, Check } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { TrendingUp, ChevronDown, ChevronUp, Clock, CheckCircle2, CircleDot, SendHorizonal, RotateCcw, Wrench, Check, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { vendorOrdersApi, vendorFilmSizesApi } from '@/lib/api/client';
+
+function validateAssignmentData(assignment) {
+    const errors = [];
+    if (!assignment || !assignment.sheet) return errors;
+
+    (assignment.sheet.sections || []).forEach((section, sIdx) => {
+        const isSkipped = !!assignment.vendorData?.[sIdx]?.[0]?.skipObservation;
+        if (!isSkipped) {
+            const rows = section.rows || [];
+            rows.forEach((row, rIdx) => {
+                const rowData = assignment.vendorData?.[sIdx]?.[rIdx];
+                const spotNo = rowData?.spotNo;
+                const observations = rowData?.observations || [];
+
+                if (!spotNo || isNaN(parseInt(spotNo, 10)) || parseInt(spotNo, 10) <= 0) {
+                    errors.push(`Section "${section.serialNo || sIdx + 1}", Weld "${row.jobWeldDescription || rIdx + 1}": Spot count must be entered.`);
+                } else if (observations.length === 0) {
+                    errors.push(`Section "${section.serialNo || sIdx + 1}", Weld "${row.jobWeldDescription || rIdx + 1}": Observations must be generated (spot count > 0).`);
+                } else {
+                    observations.forEach((obs, obsIdx) => {
+                        if (!obs.value || obs.value === '') {
+                            errors.push(`Section "${section.serialNo || sIdx + 1}", Weld "${row.jobWeldDescription || rIdx + 1}": Observation #${obsIdx + 1} (${obs.label || `Spot ${obsIdx + 1}`}) must have a value selected.`);
+                        }
+                    });
+                }
+            });
+        }
+    });
+    return errors;
+}
 
 const debounceTimers = {};
 function debouncedSave(assignmentId, payload) {
@@ -63,6 +101,8 @@ export default function VendorOrderProgressPage() {
     const [acceptedOrders, setAcceptedOrders] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
     const [filmSizes, setFilmSizes] = useState([]);
+    const [validationErrors, setValidationErrors] = useState([]);
+    const [isValidationErrorOpen, setIsValidationErrorOpen] = useState(false);
 
     const loadOrders = async () => {
         try {
@@ -345,6 +385,15 @@ export default function VendorOrderProgressPage() {
     const handleSubmitSheet = async (assignmentId) => {
         try {
             const assignment = acceptedOrders.find(a => a.id === assignmentId);
+            if (!assignment) return;
+
+            const errors = validateAssignmentData(assignment);
+            if (errors.length > 0) {
+                setValidationErrors(errors);
+                setIsValidationErrorOpen(true);
+                return;
+            }
+
             const completedStatuses = assignment.sectionStatuses.map(s => s === 'pending' ? 'complete' : s);
             
             await vendorOrdersApi.submit(assignmentId, {
@@ -818,22 +867,32 @@ export default function VendorOrderProgressPage() {
                                         )}
 
                                         {/* Submit Button */}
-                                        <div className="px-4 py-3 border-t bg-slate-50 flex items-center justify-end gap-3">
-                                            {assignment.submitted ? (
-                                                <div className="flex items-center gap-2 text-sm text-green-700">
-                                                    <CheckCircle2 className="h-4 w-4" />
-                                                    <span className="font-medium">Submitted</span>
-                                                    <span className="text-slate-400">({formatDate(assignment.submittedAt)})</span>
-                                                </div>
-                                            ) : (
-                                                <Button
-                                                    onClick={() => handleSubmitSheet(assignment.id)}
-                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    <SendHorizonal className="h-4 w-4" />
-                                                    Submit to Company
-                                                </Button>
-                                            )}
+                                        <div className="px-4 py-3 border-t bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                            <div className="text-xs text-slate-500 font-medium">
+                                                {!assignment.submitted && validateAssignmentData(assignment).length > 0 && (
+                                                    <span className="text-amber-600 flex items-center gap-1">
+                                                        <AlertTriangle className="h-3.5 w-3.5" />
+                                                        Missing required vendor observations. Click submit to view details.
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div>
+                                                {assignment.submitted ? (
+                                                    <div className="flex items-center gap-2 text-sm text-green-700">
+                                                        <CheckCircle2 className="h-4 w-4" />
+                                                        <span className="font-medium">Submitted</span>
+                                                        <span className="text-slate-400">({formatDate(assignment.submittedAt)})</span>
+                                                    </div>
+                                                ) : (
+                                                    <Button
+                                                        onClick={() => handleSubmitSheet(assignment.id)}
+                                                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        <SendHorizonal className="h-4 w-4" />
+                                                        Submit to Company
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -842,6 +901,33 @@ export default function VendorOrderProgressPage() {
                     })}
                 </div>
             )}
+
+            {/* Validation Error Dialog */}
+            <Dialog open={isValidationErrorOpen} onOpenChange={setIsValidationErrorOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600 flex items-center gap-2 text-lg font-bold">
+                            <AlertTriangle className="h-5 w-5 text-red-500" /> Validation Required
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-500 text-sm">
+                            Please fill out all observation values before submitting this sheet.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-60 overflow-y-auto space-y-2 py-2 pr-1">
+                        {validationErrors.map((error, idx) => (
+                            <div key={idx} className="flex gap-2 text-xs text-red-800 bg-red-50 border border-red-100 p-2.5 rounded-lg">
+                                <span className="text-red-500 font-bold">•</span>
+                                <span>{error}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" onClick={() => setIsValidationErrorOpen(false)} className="bg-slate-900 hover:bg-slate-800 text-white w-full">
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
