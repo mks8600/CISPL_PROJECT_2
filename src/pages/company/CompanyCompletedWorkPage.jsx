@@ -2,7 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, CheckCircle2, Printer, Download } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { ChevronDown, ChevronUp, CheckCircle2, Printer, Download, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { assignmentsApi } from '@/lib/api/client';
@@ -20,6 +28,20 @@ export default function CompanyCompletedWorkPage() {
     const { user } = useAuth();
     const [completedItems, setCompletedItems] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchField, setSearchField] = useState('all');
+    const [activeSearchQuery, setActiveSearchQuery] = useState('');
+    const [activeSearchField, setActiveSearchField] = useState('all');
+
+    const handleSearch = () => {
+        setActiveSearchQuery(searchQuery);
+        setActiveSearchField(searchField);
+    };
+
+    const handleClear = () => {
+        setSearchQuery('');
+        setActiveSearchQuery('');
+    };
 
     useEffect(() => {
         loadData();
@@ -123,6 +145,35 @@ export default function CompanyCompletedWorkPage() {
         }
     };
 
+    const filteredItems = completedItems.filter(item => {
+        if (!activeSearchQuery.trim()) return true;
+        const query = activeSearchQuery.toLowerCase().trim();
+        const sheetData = item.sheet_data || item.sheet || {};
+        const fd = sheetData.form_data || sheetData.formData || {};
+        
+        const rsNo = String(fd.rsNo || '').toLowerCase();
+        const jobNo = String(fd.jobNo || '').toLowerCase();
+        const rawDate = String(fd.date || '').toLowerCase();
+        const displayDate = String(formatDate(fd.date) || '').toLowerCase();
+        const vendorName = String(item.vendor_name || item.vendorName || '').toLowerCase();
+
+        if (activeSearchField === 'rsNo') {
+            return rsNo.includes(query);
+        }
+        if (activeSearchField === 'date') {
+            return rawDate.includes(query) || displayDate.includes(query);
+        }
+        if (activeSearchField === 'vendor') {
+            return vendorName.includes(query);
+        }
+        
+        return rsNo.includes(query) || 
+               jobNo.includes(query) || 
+               rawDate.includes(query) || 
+               displayDate.includes(query) ||
+               vendorName.includes(query);
+    });
+
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-12">
             {/* Header */}
@@ -133,6 +184,60 @@ export default function CompanyCompletedWorkPage() {
                 </div>
                 <p className="text-slate-500">View all fully completed and reviewed sheets</p>
             </div>
+
+            {/* Search Controls */}
+            {completedItems.length > 0 && (
+                <Card className="print:hidden">
+                    <CardContent className="p-4">
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <Select value={searchField} onValueChange={setSearchField}>
+                                <SelectTrigger className="w-full sm:w-40 h-10">
+                                    <SelectValue placeholder="Search by" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Search All</SelectItem>
+                                    <SelectItem value="rsNo">RS No.</SelectItem>
+                                    <SelectItem value="date">Date</SelectItem>
+                                    <SelectItem value="vendor">Vendor</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <Input
+                                    placeholder={
+                                        searchField === 'rsNo' ? "Search by RS No. (e.g. 12)..." :
+                                        searchField === 'date' ? "Search by Date (e.g. 01 Jun 2026)..." :
+                                        searchField === 'vendor' ? "Search by Vendor Name..." :
+                                        "Search by RS No., Date, Vendor..."
+                                    }
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            handleSearch();
+                                        }
+                                    }}
+                                    className="pl-10 pr-10 h-10 w-full"
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={handleClear}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+
+                            <Button onClick={handleSearch} className="h-10 bg-green-600 hover:bg-green-700 text-white gap-2 px-5">
+                                <Search className="h-4 w-4" />
+                                Search
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Completed Items */}
             {completedItems.length === 0 ? (
@@ -145,9 +250,19 @@ export default function CompanyCompletedWorkPage() {
                         </div>
                     </CardContent>
                 </Card>
+            ) : filteredItems.length === 0 ? (
+                <Card>
+                    <CardContent className="py-16">
+                        <div className="text-center text-slate-500">
+                            <Search className="h-12 w-12 mx-auto text-slate-300 mb-3 animate-pulse" />
+                            <p className="font-semibold text-slate-600">No matching completed works found.</p>
+                            <p className="text-sm mt-1 text-slate-400">Try refining your search terms for RS No., Date, or Job No.</p>
+                        </div>
+                    </CardContent>
+                </Card>
             ) : (
                 <div className="space-y-4">
-                    {completedItems.map((assignment) => {
+                    {filteredItems.map((assignment) => {
                         const sheetData = assignment.sheet_data || assignment.sheet || {};
                         const fd = sheetData.form_data || sheetData.formData || {};
                         const isExpanded = expandedId === assignment.id;
