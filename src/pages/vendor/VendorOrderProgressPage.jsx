@@ -103,6 +103,7 @@ export default function VendorOrderProgressPage() {
     const [filmSizes, setFilmSizes] = useState([]);
     const [validationErrors, setValidationErrors] = useState([]);
     const [isValidationErrorOpen, setIsValidationErrorOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState('pending'); // 'pending' or 'submitted'
 
     const loadOrders = async () => {
         try {
@@ -115,6 +116,7 @@ export default function VendorOrderProgressPage() {
             // Backend already sends camelCase — just filter accepted
             const accepted = ordersRes.filter((a) => a.status === 'accepted');
             setAcceptedOrders(accepted);
+            window.dispatchEvent(new CustomEvent('cispl:pending-orders-updated'));
         } catch (err) {
             toast.error('Failed to load orders');
         }
@@ -409,10 +411,15 @@ export default function VendorOrderProgressPage() {
             }));
             
             toast.success('Sheet submitted to company!');
+            window.dispatchEvent(new CustomEvent('cispl:pending-orders-updated'));
         } catch (error) {
             toast.error('Failed to submit, please try again.');
         }
     };
+
+    const pendingOrders = acceptedOrders.filter(a => !a.submitted);
+    const submittedOrders = acceptedOrders.filter(a => a.submitted);
+    const activeOrdersList = activeTab === 'pending' ? pendingOrders : submittedOrders;
 
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -438,7 +445,72 @@ export default function VendorOrderProgressPage() {
                 </Card>
             ) : (
                 <div className="space-y-4">
-                    {acceptedOrders.map((assignment) => {
+                    {/* Modern Tabs UI */}
+                    <div className="flex border-b border-slate-200">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('pending')}
+                            className={`flex items-center gap-2 px-6 py-3 border-b-2 font-semibold text-sm transition-all duration-300 outline-none ${
+                                activeTab === 'pending'
+                                    ? 'border-emerald-600 text-emerald-600 font-bold bg-emerald-50/20'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            }`}
+                        >
+                            <span>Pending to Submit</span>
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300 ${
+                                activeTab === 'pending' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                                {pendingOrders.length}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('submitted')}
+                            className={`flex items-center gap-2 px-6 py-3 border-b-2 font-semibold text-sm transition-all duration-300 outline-none ${
+                                activeTab === 'submitted'
+                                    ? 'border-blue-600 text-blue-600 font-bold bg-blue-50/20'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            }`}
+                        >
+                            <span>Submitted for Review</span>
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300 ${
+                                activeTab === 'submitted' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                                {submittedOrders.length}
+                            </span>
+                        </button>
+                    </div>
+
+                    {activeOrdersList.length === 0 ? (
+                        activeTab === 'pending' ? (
+                            <Card className="bg-white/50 border border-dashed border-slate-200">
+                                <CardContent className="py-16 text-center text-slate-500">
+                                    <CheckCircle2 className="h-12 w-12 mx-auto text-emerald-500 mb-3 animate-pulse" />
+                                    <p className="font-semibold text-slate-700 text-base">All Caught Up!</p>
+                                    <p className="text-sm mt-1 text-slate-500">No pending sheets to submit. If you just submitted a sheet, it will appear under the "Submitted for Review" tab.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <Card className="bg-white/50 border border-dashed border-slate-200">
+                                <CardContent className="py-16 text-center text-slate-500">
+                                    <Clock className="h-12 w-12 mx-auto text-slate-400 mb-3" />
+                                    <p className="font-semibold text-slate-700 text-base">No Sheets Submitted Yet</p>
+                                    <p className="text-sm mt-1 text-slate-500">Once you complete and submit a sheet, it will show up here for review by the company.</p>
+                                </CardContent>
+                            </Card>
+                        )
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                                <p className="text-sm text-slate-500">Showing <span className="font-semibold text-slate-700">{activeOrdersList.length}</span> sheet{activeOrdersList.length === 1 ? '' : 's'}</p>
+                                <p className="text-xs text-slate-400">Scroll to view all</p>
+                            </div>
+                            <div
+                                className="border border-slate-200 rounded-xl bg-white/50 shadow-sm"
+                                style={{ maxHeight: '70vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#94a3b8 transparent' }}
+                            >
+                                <div className="space-y-4 p-4">
+                                    {activeOrdersList.map((assignment) => {
                         const fd = assignment.sheet.formData;
                         const isExpanded = expandedId === assignment.id;
                         let totalObs = 0;
@@ -899,6 +971,10 @@ export default function VendorOrderProgressPage() {
                             </Card>
                         );
                     })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

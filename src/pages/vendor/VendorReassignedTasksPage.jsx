@@ -49,6 +49,7 @@ export default function VendorReassignedTasksPage() {
                 toast.info('Task declined.');
             }
             loadOrders();
+            window.dispatchEvent(new CustomEvent('cispl:pending-orders-updated'));
         } catch (error) {
             toast.error('Failed to update status');
         }
@@ -95,7 +96,19 @@ export default function VendorReassignedTasksPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <div className="space-y-4">
+                <>
+                    {/* Results count */}
+                    <div className="flex items-center justify-between px-1">
+                        <p className="text-sm text-slate-500">
+                            Showing <span className="font-semibold text-slate-700">{assignments.length}</span> reassigned {assignments.length === 1 ? 'task' : 'tasks'}
+                        </p>
+                        <p className="text-xs text-slate-400">Scroll to view all</p>
+                    </div>
+                    <div
+                        className="border border-slate-200 rounded-xl bg-white/50 shadow-sm"
+                        style={{ maxHeight: '70vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#94a3b8 transparent' }}
+                    >
+                    <div className="space-y-4 p-4">
                     {assignments.map((assignment) => {
                         const fd = assignment.sheet.formData;
                         const isExpanded = expandedId === assignment.id;
@@ -273,7 +286,9 @@ export default function VendorReassignedTasksPage() {
                             </Card>
                         );
                     })}
-                </div>
+                    </div>
+                    </div>
+                </>
             )}
         </div>
     );

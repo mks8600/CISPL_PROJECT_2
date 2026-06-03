@@ -27,25 +27,48 @@ router.get('/superadmin', authenticate, requirePortal('superadmin'), async (req,
 // GET /api/dashboard/company
 router.get('/company', authenticate, requirePortal('company'), async (req, res) => {
   try {
+    const companyId = req.user.companyId;
+
     const total = await pool.query(
       'SELECT COUNT(*) as count FROM assignments WHERE company_id = $1',
-      [req.user.companyId]
+      [companyId]
     );
     const pending = await pool.query(
       `SELECT COUNT(*) as count FROM assignments WHERE company_id = $1 AND status = 'pending'`,
-      [req.user.companyId]
+      [companyId]
     );
     const accepted = await pool.query(
       `SELECT COUNT(*) as count FROM assignments WHERE company_id = $1 AND status = 'accepted' AND submitted = FALSE`,
-      [req.user.companyId]
+      [companyId]
     );
     const submitted = await pool.query(
       `SELECT COUNT(*) as count FROM assignments WHERE company_id = $1 AND submitted = TRUE`,
-      [req.user.companyId]
+      [companyId]
+    );
+    const declined = await pool.query(
+      `SELECT COUNT(*) as count FROM assignments WHERE company_id = $1 AND status = 'declined'`,
+      [companyId]
     );
     const sheets = await pool.query(
       'SELECT COUNT(*) as count FROM sheets WHERE company_id = $1',
-      [req.user.companyId]
+      [companyId]
+    );
+    // Sheets awaiting company review (submitted but not all sections reviewed as ok)
+    const awaitingReview = await pool.query(
+      `SELECT COUNT(*) as count FROM assignments WHERE company_id = $1 AND submitted = TRUE AND status = 'accepted'`,
+      [companyId]
+    );
+
+    // Recent assignments for the dashboard list
+    const recent = await pool.query(
+      `SELECT id, vendor_name, vendor_no,
+              COALESCE(sheet_data->'formData'->>'jobNo', sheet_data->'form_data'->>'jobNo', '') as job_no,
+              COALESCE(sheet_data->'formData'->>'rsNo', sheet_data->'form_data'->>'rsNo', '') as rs_no,
+              COALESCE(sheet_data->'formData'->>'date', sheet_data->'form_data'->>'date', '') as sheet_date,
+              status, submitted, assigned_at
+       FROM assignments WHERE company_id = $1
+       ORDER BY assigned_at DESC LIMIT 5`,
+      [companyId]
     );
 
     res.json({
@@ -53,7 +76,10 @@ router.get('/company', authenticate, requirePortal('company'), async (req, res) 
       pendingOrders: parseInt(pending.rows[0].count),
       inProgress: parseInt(accepted.rows[0].count),
       completedOrders: parseInt(submitted.rows[0].count),
+      declinedOrders: parseInt(declined.rows[0].count),
       totalSheets: parseInt(sheets.rows[0].count),
+      awaitingReview: parseInt(awaitingReview.rows[0].count),
+      recentAssignments: recent.rows,
     });
   } catch (err) {
     console.error('Company dashboard error:', err);

@@ -28,6 +28,27 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    if (sheetId) {
+      const activeAssignments = await pool.query(
+        "SELECT sheet_data FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')",
+        [sheetId]
+      );
+
+      const incomingSections = sheetData.sections || [];
+      const incomingSerials = incomingSections.map(s => s.serialNo).filter(Boolean);
+
+      for (const row of activeAssignments.rows) {
+        const existingData = row.sheet_data || {};
+        const existingSections = existingData.sections || [];
+        const existingSerials = existingSections.map(s => s.serialNo).filter(Boolean);
+
+        const conflict = incomingSerials.find(serial => existingSerials.includes(serial));
+        if (conflict) {
+          return res.status(400).json({ error: `Item/Section "${conflict}" is already actively assigned.` });
+        }
+      }
+    }
+
     const sections = sheetData.sections || [];
     const sectionStatuses = sections.map(() => 'pending');
 
@@ -135,9 +156,9 @@ router.put('/:id/reassign', async (req, res) => {
     const carryVendorData = vendorData || assignment.vendor_data || null;
 
     const result = await pool.query(
-      `INSERT INTO assignments (company_id, company_name, vendor_id, vendor_name, vendor_no, sheet_data, section_statuses, vendor_data, reassigned_from)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [req.user.companyId, req.user.companyName, vendorId, vendorName, vendorNo, sheetData, JSON.stringify(newStatuses), carryVendorData ? JSON.stringify(carryVendorData) : null, req.params.id]
+      `INSERT INTO assignments (company_id, company_name, vendor_id, vendor_name, vendor_no, sheet_id, sheet_data, section_statuses, vendor_data, reassigned_from)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [req.user.companyId, req.user.companyName, vendorId, vendorName, vendorNo, assignment.sheet_id, sheetData, JSON.stringify(newStatuses), carryVendorData ? JSON.stringify(carryVendorData) : null, req.params.id]
     );
 
     res.status(201).json(result.rows[0]);
@@ -304,11 +325,12 @@ router.put('/:id/complete-with-revision', async (req, res) => {
       const newStatuses = revisionSections.map(() => 'pending');
 
       const revResult = await pool.query(
-        `INSERT INTO assignments (company_id, company_name, sheet_data, section_statuses, vendor_data, reassigned_from)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        `INSERT INTO assignments (company_id, company_name, sheet_id, sheet_data, section_statuses, vendor_data, reassigned_from)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
         [
           req.user.companyId,
           req.user.companyName,
+          assignment.sheet_id,
           revisionSheetData,
           JSON.stringify(newStatuses),
           JSON.stringify(revVData),

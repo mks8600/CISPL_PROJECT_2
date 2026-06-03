@@ -20,6 +20,7 @@ export default function VendorOrdersPage() {
     const { user } = useAuth();
     const [assignments, setAssignments] = useState([]);
     const [expandedId, setExpandedId] = useState(null);
+    const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'accepted', 'declined'
 
     useEffect(() => {
         loadOrders();
@@ -34,6 +35,7 @@ export default function VendorOrdersPage() {
             // Backend already sends camelCase — just filter for non-reassigned
             const mine = all.filter((a) => !a.reassignedFrom);
             setAssignments(mine);
+            window.dispatchEvent(new CustomEvent('cispl:pending-orders-updated'));
         } catch (error) {
             toast.error('Failed to load orders');
         }
@@ -49,6 +51,7 @@ export default function VendorOrdersPage() {
                 toast.info('Order declined.');
             }
             loadOrders();
+            window.dispatchEvent(new CustomEvent('cispl:pending-orders-updated'));
         } catch (error) {
             toast.error('Failed to update status');
         }
@@ -71,6 +74,11 @@ export default function VendorOrdersPage() {
             </span>
         );
     };
+
+    const pendingOrders = assignments.filter(a => a.status === 'pending');
+    const acceptedOrders = assignments.filter(a => a.status === 'accepted');
+    const declinedOrders = assignments.filter(a => a.status === 'declined');
+    const activeOrdersList = activeTab === 'pending' ? pendingOrders : (activeTab === 'accepted' ? acceptedOrders : declinedOrders);
 
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -96,7 +104,98 @@ export default function VendorOrdersPage() {
                 </Card>
             ) : (
                 <div className="space-y-4">
-                    {assignments.map((assignment) => {
+                    {/* Modern Tabs UI */}
+                    <div className="flex border-b border-slate-200">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('pending')}
+                            className={`flex items-center gap-2 px-6 py-3 border-b-2 font-semibold text-sm transition-all duration-300 outline-none ${
+                                activeTab === 'pending'
+                                    ? 'border-amber-500 text-amber-600 font-bold bg-amber-50/20'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            }`}
+                        >
+                            <span>Pending Decision</span>
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300 ${
+                                activeTab === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                                {pendingOrders.length}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('accepted')}
+                            className={`flex items-center gap-2 px-6 py-3 border-b-2 font-semibold text-sm transition-all duration-300 outline-none ${
+                                activeTab === 'accepted'
+                                    ? 'border-emerald-600 text-emerald-600 font-bold bg-emerald-50/20'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            }`}
+                        >
+                            <span>Accepted</span>
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300 ${
+                                activeTab === 'accepted' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                                {acceptedOrders.length}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('declined')}
+                            className={`flex items-center gap-2 px-6 py-3 border-b-2 font-semibold text-sm transition-all duration-300 outline-none ${
+                                activeTab === 'declined'
+                                    ? 'border-red-600 text-red-600 font-bold bg-red-50/20'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            }`}
+                        >
+                            <span>Declined</span>
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300 ${
+                                activeTab === 'declined' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                                {declinedOrders.length}
+                            </span>
+                        </button>
+                    </div>
+
+                    {activeOrdersList.length === 0 ? (
+                        activeTab === 'pending' ? (
+                            <Card className="bg-white/50 border border-dashed border-slate-200">
+                                <CardContent className="py-16 text-center text-slate-500">
+                                    <Clock className="h-12 w-12 mx-auto text-amber-500 mb-3 animate-pulse" />
+                                    <p className="font-semibold text-slate-700 text-base">No Pending Orders</p>
+                                    <p className="text-sm mt-1 text-slate-500">You don't have any new orders pending decision.</p>
+                                </CardContent>
+                            </Card>
+                        ) : activeTab === 'accepted' ? (
+                            <Card className="bg-white/50 border border-dashed border-slate-200">
+                                <CardContent className="py-16 text-center text-slate-500">
+                                    <Check className="h-12 w-12 mx-auto text-emerald-500 mb-3" />
+                                    <p className="font-semibold text-slate-700 text-base">No Accepted Orders</p>
+                                    <p className="text-sm mt-1 text-slate-500">Any orders you accept will appear here.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <Card className="bg-white/50 border border-dashed border-slate-200">
+                                <CardContent className="py-16 text-center text-slate-500">
+                                    <X className="h-12 w-12 mx-auto text-red-400 mb-3" />
+                                    <p className="font-semibold text-slate-700 text-base">No Declined Orders</p>
+                                    <p className="text-sm mt-1 text-slate-500">Any orders you decline will show up here.</p>
+                                </CardContent>
+                            </Card>
+                        )
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                                <p className="text-sm text-slate-500">
+                                    Showing <span className="font-semibold text-slate-700">{activeOrdersList.length}</span> {activeOrdersList.length === 1 ? 'order' : 'orders'}
+                                </p>
+                                <p className="text-xs text-slate-400">Scroll to view all</p>
+                            </div>
+                            <div
+                                className="border border-slate-200 rounded-xl bg-white/50 shadow-sm"
+                                style={{ maxHeight: '70vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#94a3b8 transparent' }}
+                            >
+                                <div className="space-y-4 p-4">
+                                    {activeOrdersList.map((assignment) => {
                         const fd = assignment.sheet.formData;
                         const isExpanded = expandedId === assignment.id;
 
@@ -273,6 +372,10 @@ export default function VendorOrdersPage() {
                             </Card>
                         );
                     })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

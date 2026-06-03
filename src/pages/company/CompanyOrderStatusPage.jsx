@@ -119,6 +119,7 @@ export default function CompanyOrderStatusPage() {
             loadData();
             setDescriptions((prev) => ({ ...prev, [descKey]: '' }));
             toast.success(`Section marked as ${reviewStatus.charAt(0).toUpperCase() + reviewStatus.slice(1)}!`);
+            window.dispatchEvent(new CustomEvent('cispl:company-orders-updated'));
         } catch (err) {
             toast.error(err.message || 'Failed to save review');
         }
@@ -183,6 +184,7 @@ export default function CompanyOrderStatusPage() {
             } else {
                 toast.success("Review processing complete!");
             }
+            window.dispatchEvent(new CustomEvent('cispl:company-orders-updated'));
         } catch (err) {
             toast.error(err.message || 'Failed to complete review');
         }
@@ -239,7 +241,19 @@ export default function CompanyOrderStatusPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <div className="space-y-4">
+                <>
+                    {/* Results count */}
+                    <div className="flex items-center justify-between px-1">
+                        <p className="text-sm text-slate-500">
+                            Showing <span className="font-semibold text-slate-700">{assignments.length}</span> {assignments.length === 1 ? 'order' : 'orders'} for review
+                        </p>
+                        <p className="text-xs text-slate-400">Scroll to view all</p>
+                    </div>
+                    <div
+                        className="border border-slate-200 rounded-xl bg-white/50 shadow-sm print:border-0 print:shadow-none print:bg-transparent print:max-h-none print:overflow-visible"
+                        style={{ maxHeight: '70vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#94a3b8 transparent' }}
+                    >
+                    <div className="space-y-4 p-4 print:p-0">
                     {assignments.map((assignment) => {
                         const sheetData = assignment.sheet_data || assignment.sheet || {};
                         const fd = sheetData.form_data || sheetData.formData || {};
@@ -464,7 +478,9 @@ export default function CompanyOrderStatusPage() {
                             </Card>
                         );
                     })}
-                </div>
+                    </div>
+                    </div>
+                </>
             )}
         </div>
     );

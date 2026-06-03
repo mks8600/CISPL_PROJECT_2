@@ -119,6 +119,7 @@ export default function CompanyPendingWorkPage() {
                 setReassignVendor((prev) => ({ ...prev, [assignmentId]: '' }));
                 loadData();
                 toast.success(`Revision sheet assigned to ${vendor.vendor_name || vendor.vendorName}!`);
+                window.dispatchEvent(new CustomEvent('cispl:company-orders-updated'));
             } catch (err) {
                 toast.error(err.message || 'Failed to assign vendor to revision sheet');
             }
@@ -154,6 +155,7 @@ export default function CompanyPendingWorkPage() {
             setReassignVendor((prev) => ({ ...prev, [assignmentId]: '' }));
             loadData();
             toast.success(`Pending sections reassigned to ${vendor.vendor_name || vendor.vendorName}!`);
+            window.dispatchEvent(new CustomEvent('cispl:company-orders-updated'));
         } catch (err) {
             toast.error(err.message || 'Failed to reassign sections');
         }
@@ -182,7 +184,19 @@ export default function CompanyPendingWorkPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <div className="space-y-4">
+                <>
+                    {/* Results count */}
+                    <div className="flex items-center justify-between px-1">
+                        <p className="text-sm text-slate-500">
+                            Showing <span className="font-semibold text-slate-700">{pendingItems.length}</span> pending {pendingItems.length === 1 ? 'item' : 'items'}
+                        </p>
+                        <p className="text-xs text-slate-400">Scroll to view all</p>
+                    </div>
+                    <div
+                        className="border border-slate-200 rounded-xl bg-white/50 shadow-sm print:border-0 print:shadow-none print:bg-transparent print:max-h-none print:overflow-visible"
+                        style={{ maxHeight: '70vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#94a3b8 transparent' }}
+                    >
+                    <div className="space-y-4 p-4 print:p-0">
                     {pendingItems.map((assignment) => {
                         const sheetData = assignment.sheet_data || assignment.sheet || {};
                         const fd = sheetData.form_data || sheetData.formData || {};
@@ -429,7 +443,9 @@ export default function CompanyPendingWorkPage() {
                             </Card>
                         );
                     })}
-                </div>
+                    </div>
+                    </div>
+                </>
             )}
         </div>
     );

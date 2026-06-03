@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { vendorOrdersApi, assignmentsApi } from '@/lib/api/client';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -22,6 +23,121 @@ export function Sidebar({ portalType }) {
   const location = useLocation();
   const pathname = location.pathname;
   const [isOpen, setIsOpen] = useState(false);
+  const [pendingProgressCount, setPendingProgressCount] = useState(0);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const [reassignedPendingCount, setReassignedPendingCount] = useState(0);
+  const [companyPendingCount, setCompanyPendingCount] = useState(0);
+  const [companyPendingWorkCount, setCompanyPendingWorkCount] = useState(0);
+
+  useEffect(() => {
+    if (portalType !== 'vendor') return;
+
+    const fetchPendingCounts = async () => {
+      try {
+        const orders = await vendorOrdersApi.list();
+        
+        // Count for Order Progress: status is accepted and not submitted
+        const accepted = orders.filter(o => o.status === 'accepted' && !o.submitted);
+        setPendingProgressCount(accepted.length);
+        
+        // Count for My Orders: status is pending and not reassigned
+        const pending = orders.filter(o => o.status === 'pending' && !o.reassignedFrom);
+        setPendingOrdersCount(pending.length);
+
+        // Count for Reassigned Tasks: status is pending and is reassigned
+        const reassigned = orders.filter(o => o.status === 'pending' && o.reassignedFrom);
+        setReassignedPendingCount(reassigned.length);
+      } catch (err) {
+        console.error('Failed to fetch pending counts for sidebar', err);
+      }
+    };
+
+    fetchPendingCounts();
+
+    window.addEventListener('cispl:pending-orders-updated', fetchPendingCounts);
+    window.addEventListener('focus', fetchPendingCounts);
+
+    return () => {
+      window.removeEventListener('cispl:pending-orders-updated', fetchPendingCounts);
+      window.removeEventListener('focus', fetchPendingCounts);
+    };
+  }, [portalType]);
+
+  useEffect(() => {
+    if (portalType !== 'company') return;
+
+    const fetchCompanyPendingCounts = async () => {
+      try {
+        const all = await assignmentsApi.list();
+        
+        // 1. Order Status count
+        const readyForReview = all.filter((a) => {
+          if (a.status !== 'accepted' || !a.submitted) return false;
+          const sheetData = a.sheet_data || a.sheet || {};
+          const sections = sheetData.sections || [];
+          if (sections.length === 0) return false;
+          const sectionStatuses = a.section_statuses || a.sectionStatuses || sections.map(() => 'pending');
+          const reviewStatuses = a.review_statuses || a.reviewStatuses || sections.map(() => null);
+          
+          const activeIndices = sectionStatuses.reduce((acc, s, i) => {
+            if (s !== 'reassigned') acc.push(i);
+            return acc;
+          }, []);
+          if (activeIndices.length === 0) return false;
+          
+          const allActiveReviewed = activeIndices.every((i) => {
+            const rs = reviewStatuses[i];
+            return rs === 'ok' || rs === 'repair' || rs === 'r/s' || rs === 'retake';
+          });
+          if (allActiveReviewed) return false;
+          
+          const hasCompleteSectionToReview = activeIndices.some((i) => sectionStatuses[i] === 'complete');
+          if (!hasCompleteSectionToReview) return false;
+          return true;
+        });
+        setCompanyPendingCount(readyForReview.length);
+
+        // 2. Pending Work count
+        const withPending = all.filter((a) => {
+          const sheetData = a.sheet_data || a.sheet || {};
+          const sections = sheetData.sections || [];
+          const statuses = a.section_statuses || a.sectionStatuses || sections.map(() => 'pending');
+          const reviewStatuses = a.review_statuses || a.reviewStatuses || sections.map(() => null);
+
+          // Include revision sheets that need vendor assignment (no vendor yet and has pending sections)
+          const isRevisionNeedingVendor = a.reassigned_from && !a.vendor_id && !a.submitted && statuses.some((s) => s === 'pending');
+          if (isRevisionNeedingVendor) return true;
+
+          if (a.status !== 'accepted') return false;
+
+          // If submitted, only show if it has sections reviewed as retake/missing
+          if (a.submitted) {
+            return statuses.some((s, i) => {
+              if (s === 'reassigned') return false;
+              if (reviewStatuses[i] === 'retake' || reviewStatuses[i] === 'missing') return true;
+              return false;
+            });
+          }
+
+          // Not submitted — show if it has truly pending sections
+          return statuses.some((s) => s === 'pending');
+        });
+        setCompanyPendingWorkCount(withPending.length);
+      } catch (err) {
+        console.error('Failed to fetch company pending counts', err);
+      }
+    };
+
+    fetchCompanyPendingCounts();
+
+    window.addEventListener('cispl:company-orders-updated', fetchCompanyPendingCounts);
+    window.addEventListener('focus', fetchCompanyPendingCounts);
+
+    return () => {
+      window.removeEventListener('cispl:company-orders-updated', fetchCompanyPendingCounts);
+      window.removeEventListener('focus', fetchCompanyPendingCounts);
+    };
+  }, [portalType]);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -149,7 +265,57 @@ export function Sidebar({ portalType }) {
             )}
           >
             {item.icon}
-            {item.title}
+            <span className="flex-1">{item.title}</span>
+            {item.href === '/vendor/order-progress' && pendingProgressCount > 0 && (
+              <span className={cn(
+                "px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300",
+                isActive 
+                  ? "bg-emerald-600 text-white" 
+                  : "bg-emerald-100 text-emerald-800"
+              )}>
+                {pendingProgressCount}
+              </span>
+            )}
+            {item.href === '/vendor/orders' && pendingOrdersCount > 0 && (
+              <span className={cn(
+                "px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300",
+                isActive 
+                  ? "bg-amber-600 text-white" 
+                  : "bg-amber-100 text-amber-800"
+              )}>
+                {pendingOrdersCount}
+              </span>
+            )}
+            {item.href === '/vendor/reassigned-tasks' && reassignedPendingCount > 0 && (
+              <span className={cn(
+                "px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300",
+                isActive 
+                  ? "bg-amber-600 text-white" 
+                  : "bg-amber-100 text-amber-800"
+              )}>
+                {reassignedPendingCount}
+              </span>
+            )}
+            {item.href === '/company/order-status' && companyPendingCount > 0 && (
+              <span className={cn(
+                "px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300",
+                isActive 
+                  ? "bg-blue-600 text-white" 
+                  : "bg-blue-100 text-blue-800"
+              )}>
+                {companyPendingCount}
+              </span>
+            )}
+            {item.href === '/company/pending-work' && companyPendingWorkCount > 0 && (
+              <span className={cn(
+                "px-2 py-0.5 text-xs font-bold rounded-full transition-all duration-300",
+                isActive 
+                  ? "bg-blue-600 text-white" 
+                  : "bg-blue-100 text-blue-800"
+              )}>
+                {companyPendingWorkCount}
+              </span>
+            )}
           </Link>
         );
       })}

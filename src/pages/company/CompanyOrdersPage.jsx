@@ -75,6 +75,20 @@ export default function CompanyOrdersPage() {
       return;
     }
 
+    // Check if any of the selected sections are already actively assigned
+    const conflictingSections = [];
+    selectedSections.forEach((secIdx) => {
+      const section = sheet.sections[secIdx];
+      if (section && isSectionActivelyAssigned(sheet.id, section.serialNo)) {
+        conflictingSections.push(section.serialNo || `Item ${secIdx + 1}`);
+      }
+    });
+
+    if (conflictingSections.length > 0) {
+      toast.error(`The following items are already actively assigned: ${conflictingSections.join(', ')}`);
+      return;
+    }
+
     const filteredSections = (sheet.sections || []).filter((_, idx) => selectedSections.includes(idx));
 
     try {
@@ -133,13 +147,49 @@ export default function CompanyOrdersPage() {
     return !isCompleted;
   });
 
+  const isSectionActivelyAssigned = (sheetId, serialNo) => {
+    return assignedSheets.some((assignment) => {
+      if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
+          (assignment.status === 'pending' || assignment.status === 'accepted')) {
+        const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const sections = sheetData.sections || [];
+        return sections.some(sec => sec.serialNo === serialNo);
+      }
+      return false;
+    });
+  };
+
+  const isSheetFullyAssigned = (sheetId) => {
+    const sheet = sheets.find((s) => String(s.id) === String(sheetId));
+    if (!sheet || !sheet.sections) return false;
+
+    const allSections = sheet.sections.map(s => s.serialNo).filter(Boolean);
+    if (allSections.length === 0) return false;
+
+    const assignedSectionSerials = new Set();
+    assignedSheets.forEach((assignment) => {
+      if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
+          (assignment.status === 'pending' || assignment.status === 'accepted')) {
+        const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const sections = sheetData.sections || [];
+        sections.forEach((sec) => {
+          if (sec.serialNo) {
+            assignedSectionSerials.add(sec.serialNo);
+          }
+        });
+      }
+    });
+
+    return allSections.every(serial => assignedSectionSerials.has(serial));
+  };
+
   const isSheetFullyCompleted = (sheetId) => {
-    const sheet = sheets.find((s) => s.id === sheetId);
+    const sheet = sheets.find((s) => String(s.id) === String(sheetId));
     if (!sheet || !sheet.sections) return false;
 
     const completedSectionsIndices = new Set();
     assignedSheets.forEach((assignment) => {
-      if (assignment.sheet_id === sheetId || assignment.sheetId === sheetId) {
+      if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId)) {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
         const sections = sheetData.sections || [];
         const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || sections.map(() => 'pending');
@@ -158,7 +208,11 @@ export default function CompanyOrdersPage() {
     return expectedLength > 0 && completedSectionsIndices.size >= expectedLength;
   };
 
-  const availableSheetsList = sheets;
+  const availableSheetsList = sheets.filter((sheet) => {
+    const isCompleted = isSheetFullyCompleted(sheet.id);
+    const isFullyAssigned = isSheetFullyAssigned(sheet.id);
+    return !isCompleted && !isFullyAssigned;
+  });
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -178,16 +232,23 @@ export default function CompanyOrdersPage() {
           <CardDescription>Select a saved requisition sheet and assign it to a vendor</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="flex flex-col md:flex-row gap-4 items-end w-full">
             {/* Sheet Selector */}
-            <div className="flex-1 space-y-1.5">
+            <div className="flex-1 space-y-1.5 w-full">
               <label className="text-sm font-medium text-slate-700">Select Sheet</label>
               <Select value={selectedSheetId} onValueChange={(val) => {
                 setSelectedSheetId(val);
                 if (val && val !== 'none') {
-                  const sheet = sheets.find(s => s.id === val);
+                  const sheet = sheets.find(s => String(s.id) === String(val));
                   if (sheet && sheet.sections) {
-                    setSelectedSections(sheet.sections.map((_, i) => i));
+                    // Only select sections that are not already actively assigned
+                    const availableIndices = [];
+                    sheet.sections.forEach((sec, idx) => {
+                      if (!isSectionActivelyAssigned(sheet.id, sec.serialNo)) {
+                        availableIndices.push(idx);
+                      }
+                    });
+                    setSelectedSections(availableIndices);
                   } else {
                     setSelectedSections([]);
                   }
@@ -195,7 +256,7 @@ export default function CompanyOrdersPage() {
                   setSelectedSections([]);
                 }
               }}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Choose a saved sheet..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -206,7 +267,7 @@ export default function CompanyOrdersPage() {
                   ) : (
                     availableSheetsList.map((sheet) => (
                       <SelectItem key={sheet.id} value={String(sheet.id)}>
-                        <span className="font-semibold text-blue-800">RS No: {sheet.form_data?.rsNo || sheet.formData?.rsNo || 'N/A'}</span> — Job: {sheet.form_data?.jobNo || sheet.formData?.jobNo || 'N/A'} ({new Date(sheet.created_at || sheet.createdAt || sheet.form_data?.date || sheet.formData?.date || Date.now()).toLocaleDateString()}) - {sheet.sections?.length || 0} sections
+                        RS No: {sheet.form_data?.rsNo || sheet.formData?.rsNo || 'N/A'} — Job: {sheet.form_data?.jobNo || sheet.formData?.jobNo || 'N/A'} ({formatDate(sheet.created_at || sheet.createdAt || sheet.form_data?.date || sheet.formData?.date)}) - {sheet.sections?.length || 0} sections
                       </SelectItem>
                     ))
                   )}
@@ -215,10 +276,10 @@ export default function CompanyOrdersPage() {
             </div>
 
             {/* Vendor Selector */}
-            <div className="flex-1 space-y-1.5">
+            <div className="flex-1 space-y-1.5 w-full">
               <label className="text-sm font-medium text-slate-700">Select Vendor</label>
               <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Choose a vendor..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -250,31 +311,37 @@ export default function CompanyOrdersPage() {
             <div className="mt-6 border-t pt-4">
               <label className="text-sm font-medium text-slate-700 mb-2 block">Select Items (Sections) to Assign</label>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                {sheets.find(s => s.id === selectedSheetId)?.sections?.map((section, idx) => (
-                  <label key={idx} className={`flex items-start gap-3 p-3 border rounded-md cursor-pointer transition-colors ${selectedSections.includes(idx) ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-slate-50'}`}>
-                    <input 
-                      type="checkbox" 
-                      className="mt-0.5 h-4 w-4 text-blue-600 rounded border-slate-300"
-                      checked={selectedSections.includes(idx)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedSections(prev => [...prev, idx]);
-                        } else {
-                          setSelectedSections(prev => prev.filter(i => i !== idx));
-                        }
-                      }}
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-800">
-                        Item {idx + 1} — Serial No: {section.serialNo || 'Unnamed'}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {section.rows?.length || 0} row(s) • Desc: {section.rows?.[0]?.jobWeldDescription || 'None'}
-                      </p>
-                    </div>
-                  </label>
-                ))}
-                {(!sheets.find(s => s.id === selectedSheetId)?.sections || sheets.find(s => s.id === selectedSheetId)?.sections?.length === 0) && (
+                {sheets.find(s => String(s.id) === String(selectedSheetId))?.sections?.map((section, idx) => {
+                  const alreadyAssigned = isSectionActivelyAssigned(selectedSheetId, section.serialNo);
+                  return (
+                    <label key={idx} className={`flex items-start gap-3 p-3 border rounded-md cursor-pointer transition-colors ${alreadyAssigned ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed' : selectedSections.includes(idx) ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-slate-50'}`}>
+                      <input 
+                        type="checkbox" 
+                        className="mt-0.5 h-4 w-4 text-blue-600 rounded border-slate-300"
+                        checked={selectedSections.includes(idx)}
+                        disabled={alreadyAssigned}
+                        onChange={(e) => {
+                          if (alreadyAssigned) return;
+                          if (e.target.checked) {
+                            setSelectedSections(prev => [...prev, idx]);
+                          } else {
+                            setSelectedSections(prev => prev.filter(i => i !== idx));
+                          }
+                        }}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-800 flex items-center justify-between">
+                          <span>Item {idx + 1} — Serial No: {section.serialNo || 'Unnamed'}</span>
+                          {alreadyAssigned && <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200 uppercase">Already Assigned</span>}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {section.rows?.length || 0} row(s) • Desc: {section.rows?.[0]?.jobWeldDescription || 'None'}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+                {(!sheets.find(s => String(s.id) === String(selectedSheetId))?.sections || sheets.find(s => String(s.id) === String(selectedSheetId))?.sections?.length === 0) && (
                   <p className="text-sm text-slate-500 italic">This sheet has no sections to assign.</p>
                 )}
               </div>
@@ -297,7 +364,18 @@ export default function CompanyOrdersPage() {
               <p className="text-sm">Select a sheet and vendor above to create an assignment.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-slate-500">
+                  Showing <span className="font-semibold text-slate-700">{visibleAssignments.length}</span> assigned {visibleAssignments.length === 1 ? 'order' : 'orders'}
+                </p>
+                <p className="text-xs text-slate-400">Scroll to view all</p>
+              </div>
+              <div
+                className="border border-slate-200 rounded-xl bg-white/50 shadow-sm"
+                style={{ maxHeight: '60vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#94a3b8 transparent' }}
+              >
+              <div className="space-y-3 p-4">
               {visibleAssignments.map((assignment) => {
                 const sheetData = assignment.sheet_data || assignment.sheet || {};
                 const formData = sheetData.form_data || sheetData.formData || {};
@@ -399,7 +477,9 @@ export default function CompanyOrdersPage() {
                 </div>
                 );
               })}
-            </div>
+              </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

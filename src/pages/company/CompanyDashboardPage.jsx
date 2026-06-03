@@ -8,21 +8,35 @@ import {
   Clock,
   PlayCircle,
   CheckCircle2,
-  PlusCircle
+  PlusCircle,
+  FileText,
+  XCircle,
+  Eye
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { dashboardApi, assignmentsApi } from '@/lib/api/client';
+import { dashboardApi } from '@/lib/api/client';
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
 
 export default function CompanyDashboardPage() {
   const { user } = useAuth();
-  const [sheets, setSheets] = useState([]);
   const [stats, setStats] = useState({
-      totalAssignments: 0,
-      pendingOrders: 0,
-      inProgress: 0,
-      completedOrders: 0,
-      totalSheets: 0,
+    totalAssignments: 0,
+    pendingOrders: 0,
+    inProgress: 0,
+    completedOrders: 0,
+    declinedOrders: 0,
+    totalSheets: 0,
+    awaitingReview: 0,
+    recentAssignments: [],
   });
 
   useEffect(() => {
@@ -30,9 +44,6 @@ export default function CompanyDashboardPage() {
       try {
         const dashboardData = await dashboardApi.company();
         setStats(dashboardData);
-
-        const assignments = await assignmentsApi.list();
-        setSheets(assignments);
       } catch (err) {
         toast.error('Failed to load dashboard data');
       }
@@ -45,41 +56,66 @@ export default function CompanyDashboardPage() {
     }
   }, [user?.companyId]);
 
-  const totalCount = stats.totalAssignments;
-  const pendingCount = stats.pendingOrders;
-  const acceptedCount = stats.inProgress;
-  const submittedCount = stats.completedOrders;
-
   const statCards = [
     {
       title: 'Total Assigned',
-      value: totalCount,
+      value: stats.totalAssignments,
+      description: 'All orders sent to vendors',
       icon: ClipboardList,
       color: 'text-blue-600',
       bgColor: 'bg-blue-500/10 border border-blue-500/10',
     },
     {
       title: 'Pending Response',
-      value: pendingCount,
+      value: stats.pendingOrders,
+      description: 'Awaiting vendor acceptance',
       icon: Clock,
       color: 'text-amber-600',
       bgColor: 'bg-amber-500/10 border border-amber-500/10',
     },
     {
       title: 'In Progress',
-      value: acceptedCount,
+      value: stats.inProgress,
+      description: 'Accepted, work ongoing',
       icon: PlayCircle,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-500/10 border border-indigo-500/10',
     },
     {
+      title: 'Awaiting Review',
+      value: stats.awaitingReview,
+      description: 'Submitted by vendor',
+      icon: Eye,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-500/10 border border-purple-500/10',
+    },
+    {
       title: 'Submitted',
-      value: submittedCount,
+      value: stats.completedOrders,
+      description: 'Vendor work submitted',
       icon: CheckCircle2,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-500/10 border border-emerald-500/10',
     },
+    {
+      title: 'Declined',
+      value: stats.declinedOrders,
+      description: 'Rejected by vendor',
+      icon: XCircle,
+      color: 'text-red-600',
+      bgColor: 'bg-red-500/10 border border-red-500/10',
+    },
+    {
+      title: 'Saved Sheets',
+      value: stats.totalSheets,
+      description: 'Requisition sheets created',
+      icon: FileText,
+      color: 'text-slate-600',
+      bgColor: 'bg-slate-500/10 border border-slate-500/10',
+    },
   ];
+
+  const recentAssignments = stats.recentAssignments || [];
 
   return (
     <div className="space-y-6">
@@ -104,7 +140,7 @@ export default function CompanyDashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
           <Card key={stat.title} className="hover:scale-[1.02] hover:shadow-md hover:border-slate-300 transition-all duration-300">
             <CardContent className="pt-6">
@@ -112,6 +148,7 @@ export default function CompanyDashboardPage() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{stat.title}</p>
                   <p className="text-3xl font-extrabold text-slate-900 mt-1">{stat.value}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">{stat.description}</p>
                 </div>
                 <div className={`p-3 rounded-2xl ${stat.bgColor}`}>
                   <stat.icon className={`h-6 w-6 ${stat.color}`} />
@@ -125,13 +162,16 @@ export default function CompanyDashboardPage() {
       {/* Recent Assignments */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Recent Assignments</CardTitle>
+          <div>
+            <CardTitle>Recent Assignments</CardTitle>
+            <CardDescription>Latest 5 orders assigned to vendors</CardDescription>
+          </div>
           <Button variant="ghost" asChild>
             <Link to="/company/order-status">View All</Link>
           </Button>
         </CardHeader>
         <CardContent>
-          {sheets.length === 0 ? (
+          {recentAssignments.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
               <ClipboardList className="h-12 w-12 mx-auto mb-4 text-slate-300" />
               <p>No assignments yet</p>
@@ -141,33 +181,34 @@ export default function CompanyDashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {sheets.slice(0, 5).map((sheet) => {
-                const sheetData = sheet.sheet_data || sheet.sheet || {};
-                const fd = sheetData.form_data || sheetData.formData || {};
-                return (
+              {recentAssignments.map((order) => (
                 <div
-                  key={sheet.id}
+                  key={order.id}
                   className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-lg"
                 >
                   <div>
-                    <p className="font-medium text-slate-800">{fd.jobNo || '—'}</p>
-                    <p className="text-sm text-slate-500">
-                      Vendor: {sheet.vendor_name || sheet.vendorName || '—'} • RS: {fd.rsNo || '—'}
+                    <p className="font-medium text-slate-800 flex items-center gap-2">
+                      {order.rs_no && <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200">RS {order.rs_no}</span>}
+                      {order.job_no || '—'}
+                    </p>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      Vendor: <span className="font-medium text-slate-700">{order.vendor_name || '—'}</span>
+                      {order.vendor_no && <span className="text-slate-400"> ({order.vendor_no})</span>}
+                      {order.sheet_date && <span className="text-slate-400"> • {formatDate(order.sheet_date)}</span>}
                     </p>
                   </div>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    sheet.submitted ? 'bg-green-100 text-green-800' :
-                    sheet.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
-                    sheet.status === 'declined' ? 'bg-red-100 text-red-800' :
+                    order.submitted ? 'bg-green-100 text-green-800' :
+                    order.status === 'accepted' ? 'bg-blue-100 text-blue-800' :
+                    order.status === 'declined' ? 'bg-red-100 text-red-800' :
                     'bg-amber-100 text-amber-800'
                   }`}>
-                    {sheet.submitted ? 'Submitted' :
-                     sheet.status === 'accepted' ? 'In Progress' :
-                     sheet.status === 'declined' ? 'Declined' : 'Pending'}
+                    {order.submitted ? 'Submitted' :
+                     order.status === 'accepted' ? 'In Progress' :
+                     order.status === 'declined' ? 'Declined' : 'Pending'}
                   </span>
                 </div>
-                );
-              })}
+              ))}
             </div>
           )}
         </CardContent>
