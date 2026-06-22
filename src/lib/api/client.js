@@ -138,6 +138,11 @@ export const billingApi = {
     if (filters.jobNo) params.set('jobNo', filters.jobNo);
     return api.get(`/billing?${params.toString()}`);
   },
+  getPricingPasswordStatus: () => api.get('/billing/pricing-password/status'),
+  setupPricingPassword: (data) => api.post('/billing/pricing-password/setup', data),
+  verifyPricingPassword: (data) => api.post('/billing/pricing-password/verify', data),
+  getPrices: () => api.get('/billing/prices'),
+  savePrices: (data) => api.post('/billing/prices', data),
 };
 
 // ─── Vendor API ───

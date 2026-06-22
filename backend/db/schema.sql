@@ -8,11 +8,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. COMPANIES (tenants / organizations)
 -- ============================================
 CREATE TABLE companies (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    org_code    VARCHAR(50) UNIQUE NOT NULL,
-    name        VARCHAR(255) NOT NULL,
-    created_at  TIMESTAMPTZ DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ DEFAULT NOW()
+    id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    org_code         VARCHAR(50) UNIQUE NOT NULL,
+    name             VARCHAR(255) NOT NULL,
+    pricing_password VARCHAR(255),
+    created_at       TIMESTAMPTZ DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================
@@ -142,3 +143,18 @@ CREATE TABLE vendor_film_sizes (
 );
 
 CREATE INDEX idx_vendor_film_sizes_vendor ON vendor_film_sizes(vendor_id);
+
+-- ============================================
+-- 10. FILM SIZE PRICES (per company & vendor)
+-- ============================================
+CREATE TABLE film_size_prices (
+    id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id     UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    vendor_id      UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+    film_size      VARCHAR(50) NOT NULL,
+    price_per_spot DECIMAL(10,2) NOT NULL DEFAULT 0,
+    updated_at     TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(company_id, vendor_id, film_size)
+);
+
+CREATE INDEX idx_film_size_prices_company_vendor ON film_size_prices(company_id, vendor_id);

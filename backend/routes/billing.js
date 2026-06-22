@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcrypt';
 import pool from '../db/pool.js';
 import { authenticate, requirePortal } from '../middleware/auth.js';
 
@@ -118,6 +119,7 @@ router.get('/', async (req, res) => {
               filmSize: size,
               observations,
               vendorName: assignment.vendor_name || '',
+              vendorId: assignment.vendor_id || '',
             });
           }
         }
@@ -150,6 +152,135 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('Billing error:', err);
     res.status(500).json({ error: 'Failed to calculate billing' });
+  }
+});
+
+// GET /api/billing/pricing-password/status — Check if password is set
+router.get('/pricing-password/status', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT pricing_password IS NOT NULL AND pricing_password <> \'\' AS is_set FROM companies WHERE id = $1',
+      [req.user.companyId]
+    );
+    const isSet = result.rows[0]?.is_set || false;
+    res.json({ isSet });
+  } catch (err) {
+    console.error('Password status error:', err);
+    res.status(500).json({ error: 'Failed to check pricing password status' });
+  }
+});
+
+// POST /api/billing/pricing-password/setup — Setup or change password
+router.post('/pricing-password/setup', async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  if (!newPassword || newPassword.trim() === '') {
+    return res.status(400).json({ error: 'New password is required' });
+  }
+
+  try {
+    const compResult = await pool.query(
+      'SELECT pricing_password FROM companies WHERE id = $1',
+      [req.user.companyId]
+    );
+    const currentHash = compResult.rows[0]?.pricing_password;
+
+    if (currentHash) {
+      if (!oldPassword) {
+        return res.status(400).json({ error: 'Old password is required to change it' });
+      }
+      const valid = await bcrypt.compare(oldPassword, currentHash);
+      if (!valid) {
+        return res.status(401).json({ error: 'Incorrect current password' });
+      }
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      'UPDATE companies SET pricing_password = $1, updated_at = NOW() WHERE id = $2',
+      [hashed, req.user.companyId]
+    );
+
+    res.json({ success: true, message: currentHash ? 'Password updated successfully' : 'Password set successfully' });
+  } catch (err) {
+    console.error('Setup password error:', err);
+    res.status(500).json({ error: 'Failed to set pricing password' });
+  }
+});
+
+// POST /api/billing/pricing-password/verify — Verify password to unlock
+router.post('/pricing-password/verify', async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required' });
+  }
+
+  try {
+    const compResult = await pool.query(
+      'SELECT pricing_password FROM companies WHERE id = $1',
+      [req.user.companyId]
+    );
+    const currentHash = compResult.rows[0]?.pricing_password;
+
+    if (!currentHash) {
+      return res.status(400).json({ error: 'Pricing password has not been configured yet' });
+    }
+
+    const valid = await bcrypt.compare(password, currentHash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Verify password error:', err);
+    res.status(500).json({ error: 'Failed to verify pricing password' });
+  }
+});
+
+// GET /api/billing/prices — Get all stored prices for this company
+router.get('/prices', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT vendor_id, film_size, price_per_spot FROM film_size_prices WHERE company_id = $1',
+      [req.user.companyId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get prices error:', err);
+    res.status(500).json({ error: 'Failed to fetch prices' });
+  }
+});
+
+// POST /api/billing/prices — Save prices for a vendor
+router.post('/prices', async (req, res) => {
+  const { vendorId, prices } = req.body;
+  if (!vendorId || !prices) {
+    return res.status(400).json({ error: 'vendorId and prices are required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    for (const [filmSize, price] of Object.entries(prices)) {
+      const priceVal = parseFloat(price) || 0;
+      await client.query(
+        `INSERT INTO film_size_prices (company_id, vendor_id, film_size, price_per_spot)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (company_id, vendor_id, film_size)
+         DO UPDATE SET price_per_spot = EXCLUDED.price_per_spot, updated_at = NOW()`,
+        [req.user.companyId, vendorId, filmSize, priceVal]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Prices saved successfully' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Save prices error:', err);
+    res.status(500).json({ error: 'Failed to save prices' });
+  } finally {
+    client.release();
   }
 });
 

@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calculator, Download, Calendar, Loader2, CheckCircle2, Wrench, RefreshCcw, Printer, FileText, Search, Clock } from 'lucide-react';
+import { Calculator, Download, Calendar, Loader2, CheckCircle2, Wrench, RefreshCcw, Printer, FileText, Search, Clock, IndianRupee, Tag, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { billingApi } from '@/lib/api/client';
 
@@ -34,13 +34,152 @@ export default function CompanyBillingPage() {
         detailedRows: [], sheetCount: 0, vendors: [], jobNos: []
     });
 
-    const [pricingConfig, setPricingConfig] = useState({});
     const [startDate, setStartDate] = useState(() => getLocalDateString(new Date()));
     const [endDate, setEndDate] = useState('');
     const [selectedVendor, setSelectedVendor] = useState('all');
     const [selectedJobNo, setSelectedJobNo] = useState('all');
     const [groupBy, setGroupBy] = useState('date');
     const [hasLoaded, setHasLoaded] = useState(false);
+    const [isPricingSectionVisible, setIsPricingSectionVisible] = useState(false);
+
+    const [pricingConfig, setPricingConfig] = useState({});
+    const [isUnlocked, setIsUnlocked] = useState(false);
+    const [passwordStatus, setPasswordStatus] = useState('unknown'); // 'unknown', 'not_set', 'set'
+    const [passwordInput, setPasswordInput] = useState('');
+    const [setupNewPassword, setSetupNewPassword] = useState('');
+    const [setupConfirmPassword, setSetupConfirmPassword] = useState('');
+    const [selectedPricingVendor, setSelectedPricingVendor] = useState('');
+
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [oldPasswordInput, setOldPasswordInput] = useState('');
+    const [newPasswordInput, setNewPasswordInput] = useState('');
+    const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+
+    const checkPasswordStatus = async () => {
+        try {
+            const res = await billingApi.getPricingPasswordStatus();
+            setPasswordStatus(res.isSet ? 'set' : 'not_set');
+        } catch (err) {
+            console.error('Failed to check passcode status:', err);
+        }
+    };
+
+    const loadPrices = async () => {
+        try {
+            const prices = await billingApi.getPrices();
+            const config = {};
+            prices.forEach(p => {
+                if (!config[p.vendor_id]) config[p.vendor_id] = {};
+                config[p.vendor_id][p.film_size] = p.price_per_spot.toString();
+            });
+            setPricingConfig(config);
+        } catch (err) {
+            console.error('Failed to load prices:', err);
+        }
+    };
+
+    useEffect(() => {
+        checkPasswordStatus();
+        loadPrices();
+    }, []);
+
+    useEffect(() => {
+        if (selectedVendor && selectedVendor !== 'all') {
+            setSelectedPricingVendor(selectedVendor);
+        } else if (billingResult.vendors && billingResult.vendors.length > 0 && !selectedPricingVendor) {
+            setSelectedPricingVendor(billingResult.vendors[0].vendor_id);
+        }
+    }, [billingResult.vendors, selectedVendor]);
+
+    const handleVerifyPassword = async () => {
+        if (!passwordInput) {
+            toast.error('Please enter the passcode');
+            return;
+        }
+        setLoading(true);
+        try {
+            await billingApi.verifyPricingPassword({ password: passwordInput });
+            setIsUnlocked(true);
+            toast.success('Pricing section unlocked');
+        } catch (err) {
+            console.error(err);
+            toast.error(err.message || 'Incorrect passcode');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSetupPassword = async () => {
+        if (!setupNewPassword) {
+            toast.error('Passcode cannot be empty');
+            return;
+        }
+        if (setupNewPassword !== setupConfirmPassword) {
+            toast.error('Passcodes do not match');
+            return;
+        }
+        setLoading(true);
+        try {
+            await billingApi.setupPricingPassword({ newPassword: setupNewPassword });
+            setPasswordStatus('set');
+            setIsUnlocked(true);
+            toast.success('Passcode configured and unlocked');
+        } catch (err) {
+            console.error(err);
+            toast.error(err.message || 'Failed to setup passcode');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleChangePassword = async () => {
+        if (!oldPasswordInput || !newPasswordInput) {
+            toast.error('All fields are required');
+            return;
+        }
+        if (newPasswordInput !== confirmPasswordInput) {
+            toast.error('New passcodes do not match');
+            return;
+        }
+        setLoading(true);
+        try {
+            await billingApi.setupPricingPassword({ 
+                oldPassword: oldPasswordInput, 
+                newPassword: newPasswordInput 
+            });
+            setIsChangingPassword(false);
+            setOldPasswordInput('');
+            setNewPasswordInput('');
+            setConfirmPasswordInput('');
+            toast.success('Passcode updated successfully');
+        } catch (err) {
+            console.error(err);
+            toast.error(err.message || 'Failed to change passcode');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSavePrices = async () => {
+        if (!selectedPricingVendor) {
+            toast.error('Please select a vendor first');
+            return;
+        }
+        setLoading(true);
+        try {
+            const prices = pricingConfig[selectedPricingVendor] || {};
+            await billingApi.savePrices({
+                vendorId: selectedPricingVendor,
+                prices
+            });
+            toast.success('Prices saved to database successfully!');
+        } catch (err) {
+            console.error('Failed to save prices:', err);
+            toast.error(err.message || 'Failed to save prices');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const loadData = async (overrideStart, overrideEnd) => {
         setLoading(true);
@@ -91,6 +230,30 @@ export default function CompanyBillingPage() {
         return groups;
     };
 
+    const calculateFilmSizePricing = (size) => {
+        const filmSizeRows = (billingResult.detailedRows || []).filter(r => r.filmSize === size);
+        const amount = filmSizeRows.reduce((sum, row) => {
+            const priceVal = parseFloat(pricingConfig[row.vendorId]?.[size]) || 0;
+            return sum + (row.spotNo * priceVal);
+        }, 0);
+        
+        // Find unique prices
+        const uniquePrices = new Set();
+        filmSizeRows.forEach(row => {
+            const priceVal = parseFloat(pricingConfig[row.vendorId]?.[size]) || 0;
+            uniquePrices.add(priceVal);
+        });
+        
+        const totalSpots = filmSizeRows.reduce((sum, row) => sum + row.spotNo, 0);
+        const avgPrice = totalSpots > 0 ? (amount / totalSpots) : 0;
+        
+        const priceStr = uniquePrices.size > 1 
+            ? `Varies (avg ₹${avgPrice.toFixed(2)})` 
+            : `₹${avgPrice.toFixed(2)}`;
+            
+        return { priceStr, amount, isVaries: uniquePrices.size > 1, avgPrice };
+    };
+
     const exportToCSV = () => {
         const rows = billingResult.detailedRows || [];
         if (rows.length === 0) return;
@@ -100,10 +263,9 @@ export default function CompanyBillingPage() {
         csv += 'Film Size,Total Spots,Price per Spot,Total Amount\n';
         let grandTotal = 0;
         Object.entries(billingResult.filmSizeTotals).forEach(([size, total]) => {
-            const price = parseFloat(pricingConfig[size]) || 0;
-            const amount = total * price;
+            const { priceStr, amount } = calculateFilmSizePricing(size);
             grandTotal += amount;
-            csv += `"${size}","${total}","${price}","${amount}"\n`;
+            csv += `"${size}","${total}","${priceStr}","${amount}"\n`;
         });
         csv += `"Grand Total","${billingResult.totalSpotsAll}","","${grandTotal}"\n\n`;
         csv += 'Detailed Report\n';
@@ -142,8 +304,8 @@ export default function CompanyBillingPage() {
         win.document.write(`<h2>Film Size Summary</h2><table><tr><th>Film Size</th><th>Total Spots</th><th>Price/Spot</th><th>Amount</th></tr>`);
         let gt = 0;
         Object.entries(billingResult.filmSizeTotals).forEach(([s, t]) => {
-            const p = parseFloat(pricingConfig[s]) || 0; const a = t * p; gt += a;
-            win.document.write(`<tr><td>${s}</td><td>${t}</td><td>₹${p}</td><td>₹${a.toLocaleString('en-IN')}</td></tr>`);
+            const { priceStr, amount } = calculateFilmSizePricing(s); gt += amount;
+            win.document.write(`<tr><td>${s}</td><td>${t}</td><td>${priceStr}</td><td>₹${amount.toLocaleString('en-IN')}</td></tr>`);
         });
         win.document.write(`<tr><th colspan="3" style="text-align:right">Grand Total</th><th>₹${gt.toLocaleString('en-IN')}</th></tr></table>`);
         win.document.write(`<h2>Detailed Report</h2>`);
@@ -223,6 +385,16 @@ export default function CompanyBillingPage() {
                                 {loading ? 'Loading...' : 'Load Data'}
                             </Button>
                             <Button variant="outline" onClick={handleClearFilters} className="h-10 border-slate-300 hover:bg-slate-50">Clear</Button>
+                            {hasLoaded && (
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setIsPricingSectionVisible(p => !p)} 
+                                    className={`h-10 gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 shadow-sm`}
+                                >
+                                    <IndianRupee className="h-4 w-4" />
+                                    {isPricingSectionVisible ? 'Hide Rates' : 'Manage Rates'}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </CardContent>
@@ -267,6 +439,258 @@ export default function CompanyBillingPage() {
                         <div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg text-purple-700"><FileText className="h-5 w-5" /></div><span className="font-semibold text-purple-800">Porosity</span></div>
                         <span className="text-2xl font-bold text-purple-900">{billingResult.statusCounts?.Porosity || 0}</span>
                     </div>
+                </div>
+            )}
+
+            {/* ─── PRICE FOR FILM SIZE ─── */}
+            {hasData && isPricingSectionVisible && (
+                <div className="space-y-4">
+                    {!isUnlocked ? (
+                        <Card className="border-blue-200 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 shadow-sm">
+                            <CardContent className="relative flex flex-col items-center justify-center py-10 px-4 text-center max-w-md mx-auto">
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => setIsPricingSectionVisible(false)} 
+                                    className="absolute right-2 top-2 h-8 w-8 p-0 text-slate-400 hover:text-slate-600 rounded-full"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                                <div className="p-3.5 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl mb-4 shadow-md shadow-blue-200">
+                                    <Clock className="h-8 w-8" />
+                                </div>
+                                
+                                {passwordStatus === 'not_set' ? (
+                                    <div className="space-y-4 w-full">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-slate-800">Setup Pricing Passcode</h3>
+                                            <p className="text-xs text-slate-500 mt-1">Set a passcode to secure your film size pricing. Authorized users will need this passcode to view and edit prices.</p>
+                                        </div>
+                                        <div className="space-y-3 text-left">
+                                            <div className="space-y-1">
+                                                <Label htmlFor="setupPasscode">New Passcode</Label>
+                                                <Input 
+                                                    id="setupPasscode" 
+                                                    type="password" 
+                                                    placeholder="••••••" 
+                                                    value={setupNewPassword} 
+                                                    onChange={e => setSetupNewPassword(e.target.value)} 
+                                                    className="h-10 text-center font-bold tracking-widest text-lg"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="confirmPasscode">Confirm Passcode</Label>
+                                                <Input 
+                                                    id="confirmPasscode" 
+                                                    type="password" 
+                                                    placeholder="••••••" 
+                                                    value={setupConfirmPassword} 
+                                                    onChange={e => setSetupConfirmPassword(e.target.value)} 
+                                                    className="h-10 text-center font-bold tracking-widest text-lg"
+                                                />
+                                            </div>
+                                        </div>
+                                        <Button 
+                                            onClick={handleSetupPassword} 
+                                            disabled={loading}
+                                            className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs"
+                                        >
+                                            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                            Setup and Unlock
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4 w-full">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-slate-800">Pricing Section Secured</h3>
+                                            <p className="text-xs text-slate-500 mt-1">Enter your billing passcode to view or configure film size rates.</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Input 
+                                                type="password" 
+                                                placeholder="Enter Passcode" 
+                                                value={passwordInput} 
+                                                onChange={e => setPasswordInput(e.target.value)} 
+                                                onKeyDown={e => { if (e.key === 'Enter') handleVerifyPassword(); }}
+                                                className="h-10 text-center font-bold tracking-widest text-lg border-slate-200 focus:border-blue-400 focus:ring-blue-200"
+                                            />
+                                        </div>
+                                        <Button 
+                                            onClick={handleVerifyPassword} 
+                                            disabled={loading}
+                                            className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md shadow-blue-200"
+                                        >
+                                            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                            Unlock Rates
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ) : isChangingPassword ? (
+                        <Card className="border-blue-200 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="text-lg text-slate-800">Change Billing Passcode</CardTitle>
+                                <CardDescription className="text-slate-500">Provide your current passcode to set a new one.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4 max-w-md">
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <Label htmlFor="oldPasscode">Current Passcode</Label>
+                                        <Input 
+                                            id="oldPasscode" 
+                                            type="password" 
+                                            placeholder="••••••" 
+                                            value={oldPasswordInput} 
+                                            onChange={e => setOldPasswordInput(e.target.value)} 
+                                            className="h-10 text-center font-bold tracking-widest text-lg"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="newPasscode">New Passcode</Label>
+                                        <Input 
+                                            id="newPasscode" 
+                                            type="password" 
+                                            placeholder="••••••" 
+                                            value={newPasswordInput} 
+                                            onChange={e => setNewPasswordInput(e.target.value)} 
+                                            className="h-10 text-center font-bold tracking-widest text-lg"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="confirmNewPasscode">Confirm New Passcode</Label>
+                                        <Input 
+                                            id="confirmNewPasscode" 
+                                            type="password" 
+                                            placeholder="••••••" 
+                                            value={confirmPasswordInput} 
+                                            onChange={e => setConfirmPasswordInput(e.target.value)} 
+                                            className="h-10 text-center font-bold tracking-widest text-lg"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                    <Button variant="outline" onClick={() => setIsChangingPassword(false)} className="h-9">Cancel</Button>
+                                    <Button onClick={handleChangePassword} disabled={loading} className="h-9 bg-blue-600 hover:bg-blue-700 text-white">
+                                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                        Update Passcode
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card className="border-blue-200 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40">
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center justify-between flex-wrap gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl text-white shadow-md shadow-blue-200">
+                                            <IndianRupee className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg text-slate-800 font-bold">Price for Film Size</CardTitle>
+                                            <CardDescription className="text-slate-500">Configure prices per spot. Saved rates automatically calculate billing amounts below.</CardDescription>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 items-center flex-wrap">
+                                        <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1.5 shadow-xs">
+                                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Configure For:</span>
+                                            <select 
+                                                value={selectedPricingVendor} 
+                                                onChange={e => setSelectedPricingVendor(e.target.value)} 
+                                                className="bg-transparent text-sm font-bold text-slate-800 outline-none cursor-pointer"
+                                            >
+                                                {billingResult.vendors.map(v => (
+                                                    <option key={v.vendor_id} value={v.vendor_id}>{v.vendor_name}</option>
+                                                ))}
+                                                {billingResult.vendors.length === 0 && <option value="">No active vendors</option>}
+                                            </select>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setIsChangingPassword(true)}
+                                            className="h-9 border-slate-300 text-slate-700 hover:bg-slate-50"
+                                        >
+                                            Change Passcode
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleSavePrices}
+                                            className="h-9 gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 shadow-sm"
+                                        >
+                                            <Save className="h-4 w-4" />
+                                            Save Prices
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setIsPricingSectionVisible(false)}
+                                            className="h-9 gap-1.5 border-slate-300 text-slate-700 hover:bg-slate-50 shadow-xs"
+                                        >
+                                            <X className="h-4 w-4" />
+                                            Close
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    {Object.keys(billingResult.filmSizeTotals).map(size => {
+                                        const vendorPrices = pricingConfig[selectedPricingVendor] || {};
+                                        return (
+                                            <div key={size} className="group relative bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 p-3">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="p-1 bg-slate-100 rounded-md group-hover:bg-blue-100 transition-colors">
+                                                        <Tag className="h-3.5 w-3.5 text-slate-500 group-hover:text-blue-600 transition-colors" />
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-800 tracking-wide">{size}</span>
+                                                    <span className="text-[10px] text-slate-400 ml-auto bg-slate-50 px-1.5 py-0.5 rounded-full">
+                                                        {(billingResult.detailedRows || [])
+                                                            .filter(r => r.filmSize === size && r.vendorId === selectedPricingVendor)
+                                                            .reduce((s, r) => s + r.spotNo, 0)} spots
+                                                    </span>
+                                                </div>
+                                                <div className="relative">
+                                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-sm">₹</span>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        placeholder="0.00"
+                                                        value={vendorPrices[size] || ''}
+                                                        onChange={e => setPricingConfig(p => ({
+                                                            ...p,
+                                                            [selectedPricingVendor]: {
+                                                                ...(p[selectedPricingVendor] || {}),
+                                                                [size]: e.target.value
+                                                            }
+                                                        }))}
+                                                        className="pl-7 text-right font-semibold text-slate-900 h-9 bg-slate-50/50 focus:bg-white border-slate-200 focus:border-blue-400 focus:ring-blue-200"
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {Object.keys(billingResult.filmSizeTotals).length > 0 && selectedPricingVendor && (
+                                    <div className="mt-3 flex items-center justify-between px-1">
+                                        <p className="text-xs text-slate-400">
+                                            {Object.values(pricingConfig[selectedPricingVendor] || {}).filter(v => parseFloat(v) > 0).length} of {Object.keys(billingResult.filmSizeTotals).length} sizes priced
+                                        </p>
+                                        <p className="text-xs font-semibold text-blue-700">
+                                            Estimated Vendor Total: ₹{(() => {
+                                                const vendorSpots = (billingResult.detailedRows || [])
+                                                    .filter(r => r.vendorId === selectedPricingVendor)
+                                                    .reduce((s, r) => s + (r.spotNo * (parseFloat(pricingConfig[selectedPricingVendor]?.[r.filmSize]) || 0)), 0);
+                                                return vendorSpots.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                            })()}
+                                        </p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             )}
 
@@ -319,23 +743,33 @@ export default function CompanyBillingPage() {
                                 </tr></thead>
                                 <tbody>
                                     {Object.entries(billingResult.filmSizeTotals).map(([size, total]) => {
-                                        const price = parseFloat(pricingConfig[size]) || 0;
+                                        const { priceStr, amount, isVaries, avgPrice } = calculateFilmSizePricing(size);
                                         return (
                                             <tr key={size} className="border-b border-slate-200 hover:bg-blue-50/30 transition-colors group">
                                                 <td className="px-6 py-4 bg-white font-medium text-slate-700 text-lg group-hover:text-blue-700 transition-colors">{size}</td>
                                                 <td className="px-6 py-4 bg-white font-bold text-slate-900 text-center text-lg">{total}</td>
                                                 <td className="px-6 py-4 bg-white text-center">
-                                                    <div className="flex justify-center"><div className="relative w-32">
-                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">₹</span>
-                                                        <Input type="number" min="0" className="pl-7 text-right font-medium" placeholder="0.00" value={pricingConfig[size] || ''} onChange={e => setPricingConfig(p => ({ ...p, [size]: e.target.value }))} />
-                                                    </div></div>
+                                                    {isVaries ? (
+                                                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-sm">
+                                                            Varies (₹{avgPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} avg)
+                                                        </span>
+                                                    ) : avgPrice > 0 ? (
+                                                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-bold text-base">
+                                                            ₹{avgPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-400 text-sm italic">Set price above ↑</span>
+                                                    )}
                                                 </td>
-                                                <td className="px-6 py-4 bg-slate-50/50 font-bold text-slate-800 text-right text-lg">₹{(total * price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                <td className="px-6 py-4 bg-slate-50/50 font-bold text-slate-800 text-right text-lg">₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             </tr>
                                         );
                                     })}
                                     {(() => {
-                                        const gt = Object.entries(billingResult.filmSizeTotals).reduce((s, [sz, t]) => s + (t * (parseFloat(pricingConfig[sz]) || 0)), 0);
+                                        const gt = (billingResult.detailedRows || []).reduce((sum, row) => {
+                                            const priceVal = parseFloat(pricingConfig[row.vendorId]?.[row.filmSize]) || 0;
+                                            return sum + (row.spotNo * priceVal);
+                                        }, 0);
                                         return (<tr className="border-t-4 border-slate-400 bg-blue-50/40">
                                             <td className="px-6 py-5 font-bold text-slate-800 text-right text-base" colSpan={3}>Grand Total:</td>
                                             <td className="px-6 py-5 font-black text-blue-900 text-right text-2xl">₹{gt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>

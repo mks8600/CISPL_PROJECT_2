@@ -10,10 +10,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { ChevronDown, ChevronUp, CheckCircle2, Printer, Download, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, CheckCircle2, Download, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { assignmentsApi } from '@/lib/api/client';
+import { exportAssignmentPdf } from '@/lib/exportPdf';
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -375,11 +376,11 @@ export default function CompanyCompletedWorkPage() {
                                                     Export Excel
                                                 </Button>
                                                 <Button 
-                                                    onClick={() => window.print()}
+                                                    onClick={() => exportAssignmentPdf(assignment)}
                                                     variant="outline" 
                                                     className="print:hidden shrink-0 flex items-center gap-2 border-slate-300 hover:bg-slate-50"
                                                 >
-                                                    <Printer className="h-4 w-4" />
+                                                    <Download className="h-4 w-4" />
                                                     Export PDF
                                                 </Button>
                                             </div>
