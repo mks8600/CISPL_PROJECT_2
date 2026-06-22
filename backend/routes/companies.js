@@ -70,31 +70,35 @@ router.post('/:id/credentials', async (req, res) => {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
+  const client = await pool.connect();
   try {
-    // Verify company exists
-    const comp = await pool.query('SELECT * FROM companies WHERE id = $1', [req.params.id]);
+    await client.query('BEGIN');
+    
+    // Verify company exists and lock row
+    const comp = await client.query('SELECT * FROM companies WHERE id = $1 FOR UPDATE', [req.params.id]);
     if (comp.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Company not found' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Update existing admin or insert new one if no admin exists for this company
-    const existingAdmin = await pool.query(
+    const existingAdmin = await client.query(
       "SELECT id FROM users WHERE company_id = $1 AND role = 'admin'",
       [req.params.id]
     );
 
     let result;
     if (existingAdmin.rows.length > 0) {
-      result = await pool.query(
+      result = await client.query(
         `UPDATE users SET email = $1, password = $2, plain_password = $3, name = $4 
          WHERE company_id = $5 AND role = 'admin'
          RETURNING id, email, plain_password, name, role`,
         [email.trim().toLowerCase(), hashedPassword, password, name || 'Admin User', req.params.id]
       );
     } else {
-      result = await pool.query(
+      result = await client.query(
         `INSERT INTO users (company_id, email, password, plain_password, name, role)
          VALUES ($1, $2, $3, $4, $5, 'admin')
          RETURNING id, email, plain_password, name, role`,
@@ -102,10 +106,14 @@ router.post('/:id/credentials', async (req, res) => {
       );
     }
 
+    await client.query('COMMIT');
     res.json({ message: 'Credentials set', user: result.rows[0] });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Set credentials error:', err);
     res.status(500).json({ error: 'Failed to set credentials' });
+  } finally {
+    client.release();
   }
 });
 

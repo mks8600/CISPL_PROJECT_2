@@ -21,8 +21,8 @@ router.get('/', async (req, res) => {
 });
 
 // Helper function to check if any of the incoming serial numbers are already assigned
-async function checkAssignmentConflicts(pool, sheetId, incomingSerials, excludeAssignmentId = null) {
-  if (!sheetId || !incomingSerials || incomingSerials.length === 0) return null;
+async function checkAssignmentConflicts(client, sheetId, incomingSerials, excludeAssignmentId = null) {
+  if (!sheetId || !Array.isArray(incomingSerials) || incomingSerials.length === 0) return null;
 
   let query = "SELECT id, sheet_data, section_statuses, review_statuses, vendor_id FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')";
   const params = [sheetId];
@@ -31,7 +31,7 @@ async function checkAssignmentConflicts(pool, sheetId, incomingSerials, excludeA
     params.push(excludeAssignmentId);
   }
 
-  const activeAssignments = await pool.query(query, params);
+  const activeAssignments = await client.query(query, params);
 
   for (const row of activeAssignments.rows) {
     // Skip assignments without a vendor (orphan revision sheets)
@@ -69,13 +69,20 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'sheetData and vendorId are required' });
   }
 
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     if (sheetId) {
+      // Lock the sheet to serialize assignment logic for this specific sheet
+      await client.query('SELECT 1 FROM sheets WHERE id = $1 FOR UPDATE', [sheetId]);
+
       const incomingSections = sheetData.sections || [];
       const incomingSerials = incomingSections.map(s => s.serialNo).filter(Boolean);
 
-      const conflict = await checkAssignmentConflicts(pool, sheetId, incomingSerials);
+      const conflict = await checkAssignmentConflicts(client, sheetId, incomingSerials);
       if (conflict) {
+        await client.query('ROLLBACK');
         return res.status(400).json({ error: `Item/Section "${conflict}" is already actively assigned.` });
       }
     }
@@ -83,15 +90,20 @@ router.post('/', async (req, res) => {
     const sections = sheetData.sections || [];
     const sectionStatuses = sections.map(() => 'pending');
 
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO assignments (company_id, company_name, vendor_id, vendor_name, vendor_no, sheet_id, sheet_data, section_statuses)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [req.user.companyId, req.user.companyName, vendorId, vendorName, vendorNo, sheetId, sheetData, JSON.stringify(sectionStatuses)]
     );
+    
+    await client.query('COMMIT');
     res.status(201).json(result.rows[0]);
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Create assignment error:', err);
     res.status(500).json({ error: 'Failed to create assignment' });
+  } finally {
+    client.release();
   }
 });
 
@@ -162,23 +174,32 @@ router.put('/:id/review', async (req, res) => {
 router.put('/:id/reassign', async (req, res) => {
   const { vendorId, vendorName, vendorNo, sectionIndices, sheetData, vendorData } = req.body;
 
+  const client = await pool.connect();
   try {
-    const current = await pool.query(
-      'SELECT * FROM assignments WHERE id = $1 AND company_id = $2',
+    await client.query('BEGIN');
+    const current = await client.query(
+      'SELECT * FROM assignments WHERE id = $1 AND company_id = $2 FOR UPDATE',
       [req.params.id, req.user.companyId]
     );
-    if (current.rows.length === 0) return res.status(404).json({ error: 'Assignment not found' });
+    if (current.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Assignment not found' });
+    }
 
     const assignment = current.rows[0];
 
     // Check for conflicts before reassigning
     if (assignment.sheet_id) {
+      // Lock the sheet to serialize assignment logic for this specific sheet
+      await client.query('SELECT 1 FROM sheets WHERE id = $1 FOR UPDATE', [assignment.sheet_id]);
+
       const newSections = sheetData.sections || [];
       const incomingSerials = newSections.map(s => s.serialNo).filter(Boolean);
       
       // Exclude the current assignment from conflict check since we are reassigning from it
-      const conflict = await checkAssignmentConflicts(pool, assignment.sheet_id, incomingSerials, assignment.id);
+      const conflict = await checkAssignmentConflicts(client, assignment.sheet_id, incomingSerials, assignment.id);
       if (conflict) {
+        await client.query('ROLLBACK');
         return res.status(400).json({ error: `Item/Section "${conflict}" is already actively assigned to another vendor.` });
       }
     }
@@ -188,7 +209,7 @@ router.put('/:id/reassign', async (req, res) => {
       sectionStatuses[idx] = 'reassigned';
     }
 
-    await pool.query(
+    await client.query(
       'UPDATE assignments SET section_statuses = $1, updated_at = NOW() WHERE id = $2',
       [JSON.stringify(sectionStatuses), req.params.id]
     );
@@ -199,16 +220,20 @@ router.put('/:id/reassign', async (req, res) => {
     // Carry over vendor_data if provided (e.g. revision sheets with pre-filled spot/film data)
     const carryVendorData = vendorData || assignment.vendor_data || null;
 
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO assignments (company_id, company_name, vendor_id, vendor_name, vendor_no, sheet_id, sheet_data, section_statuses, vendor_data, reassigned_from)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [req.user.companyId, req.user.companyName, vendorId, vendorName, vendorNo, assignment.sheet_id, sheetData, JSON.stringify(newStatuses), carryVendorData ? JSON.stringify(carryVendorData) : null, req.params.id]
     );
 
+    await client.query('COMMIT');
     res.status(201).json(result.rows[0]);
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Reassign error:', err);
     res.status(500).json({ error: 'Failed to reassign' });
+  } finally {
+    client.release();
   }
 });
 
