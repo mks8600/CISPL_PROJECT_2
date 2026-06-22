@@ -284,7 +284,7 @@ export default function CompanyOrdersPage() {
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4 items-end w-full">
             {/* Sheet Selector */}
-            <div className="flex-1 space-y-1.5 w-full">
+            <div className="flex-1 space-y-1.5 w-full min-w-0">
               <label className="text-sm font-medium text-slate-700">Select Sheet</label>
               <Select value={selectedSheetId} onValueChange={(val) => {
                 setSelectedSheetId(val);
@@ -306,7 +306,7 @@ export default function CompanyOrdersPage() {
                   setSelectedSections([]);
                 }
               }}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full min-w-0 overflow-hidden">
                   <SelectValue placeholder="Choose a saved sheet..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -330,10 +330,10 @@ export default function CompanyOrdersPage() {
             </div>
 
             {/* Vendor Selector */}
-            <div className="flex-1 space-y-1.5 w-full">
+            <div className="flex-1 space-y-1.5 w-full min-w-0">
               <label className="text-sm font-medium text-slate-700">Select Vendor</label>
               <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full min-w-0 overflow-hidden">
                   <SelectValue placeholder="Choose a vendor..." />
                 </SelectTrigger>
                 <SelectContent>
