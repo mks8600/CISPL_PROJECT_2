@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import pool from './db/pool.js';
 
 import authRoutes from './routes/auth.js';
 import companiesRoutes from './routes/companies.js';
@@ -17,6 +18,17 @@ import billingRoutes from './routes/billing.js';
 import dashboardRoutes from './routes/dashboard.js';
 
 dotenv.config();
+
+// Run database schema migrations
+(async () => {
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255);');
+    await pool.query('ALTER TABLE vendors ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255);');
+    console.log('✅ Database schema migrations applied successfully.');
+  } catch (err) {
+    console.error('❌ Failed to run database schema migrations:', err);
+  }
+})();
 
 const app = express();
 app.set('trust proxy', 1);
