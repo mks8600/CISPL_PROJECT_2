@@ -153,7 +153,12 @@ export default function CompanyOrdersPage() {
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
         const sections = sheetData.sections || [];
-        return sections.some(sec => sec.serialNo === serialNo);
+        const idx = sections.findIndex(sec => sec.serialNo === serialNo);
+        if (idx === -1) return false;
+        
+        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
+        const statusOfSec = sectionStatuses[idx] || 'pending';
+        return statusOfSec !== 'reassigned';
       }
       return false;
     });
@@ -172,15 +177,60 @@ export default function CompanyOrdersPage() {
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
         const sections = sheetData.sections || [];
-        sections.forEach((sec) => {
+        sections.forEach((sec, idx) => {
           if (sec.serialNo) {
-            assignedSectionSerials.add(sec.serialNo);
+            const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
+            const statusOfSec = sectionStatuses[idx] || 'pending';
+            if (statusOfSec !== 'reassigned') {
+              assignedSectionSerials.add(sec.serialNo);
+            }
           }
         });
       }
     });
 
     return allSections.every(serial => assignedSectionSerials.has(serial));
+  };
+
+  const getAssignedVendorsForSheet = (sheetId) => {
+    const assignedVendors = [];
+    assignedSheets.forEach((assignment) => {
+      if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
+          (assignment.status === 'pending' || assignment.status === 'accepted')) {
+        const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const sections = sheetData.sections || [];
+        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
+        const hasActiveSection = sections.some((sec, idx) => {
+          const statusOfSec = sectionStatuses[idx] || 'pending';
+          return statusOfSec !== 'reassigned';
+        });
+        if (hasActiveSection) {
+          const vendorName = assignment.vendor_name || assignment.vendorName;
+          if (vendorName) {
+            assignedVendors.push(vendorName);
+          }
+        }
+      }
+    });
+    return [...new Set(assignedVendors)];
+  };
+
+  const getVendorForSection = (sheetId, serialNo) => {
+    const found = assignedSheets.find((assignment) => {
+      if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
+          (assignment.status === 'pending' || assignment.status === 'accepted')) {
+        const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const sections = sheetData.sections || [];
+        const idx = sections.findIndex(sec => sec.serialNo === serialNo);
+        if (idx === -1) return false;
+        
+        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
+        const statusOfSec = sectionStatuses[idx] || 'pending';
+        return statusOfSec !== 'reassigned';
+      }
+      return false;
+    });
+    return found ? (found.vendor_name || found.vendorName) : null;
   };
 
   const isSheetFullyCompleted = (sheetId) => {
@@ -265,11 +315,15 @@ export default function CompanyOrdersPage() {
                       No sheets available
                     </SelectItem>
                   ) : (
-                    availableSheetsList.map((sheet) => (
-                      <SelectItem key={sheet.id} value={String(sheet.id)}>
-                        RS No: {sheet.form_data?.rsNo || sheet.formData?.rsNo || 'N/A'} — Job: {sheet.form_data?.jobNo || sheet.formData?.jobNo || 'N/A'} ({formatDate(sheet.created_at || sheet.createdAt || sheet.form_data?.date || sheet.formData?.date)}) - {sheet.sections?.length || 0} sections
-                      </SelectItem>
-                    ))
+                    availableSheetsList.map((sheet) => {
+                      const assignedVendors = getAssignedVendorsForSheet(sheet.id);
+                      const vendorsSuffix = assignedVendors.length > 0 ? ` (Assigned to: ${assignedVendors.join(', ')})` : '';
+                      return (
+                        <SelectItem key={sheet.id} value={String(sheet.id)}>
+                          RS No: {sheet.form_data?.rsNo || sheet.formData?.rsNo || 'N/A'} — Job: {sheet.form_data?.jobNo || sheet.formData?.jobNo || 'N/A'} ({formatDate(sheet.created_at || sheet.createdAt || sheet.form_data?.date || sheet.formData?.date)}) - {sheet.sections?.length || 0} sections{vendorsSuffix}
+                        </SelectItem>
+                      );
+                    })
                   )}
                 </SelectContent>
               </Select>
@@ -332,7 +386,11 @@ export default function CompanyOrdersPage() {
                       <div className="flex-1">
                         <p className="text-sm font-medium text-slate-800 flex items-center justify-between">
                           <span>Item {idx + 1} — Serial No: {section.serialNo || 'Unnamed'}</span>
-                          {alreadyAssigned && <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200 uppercase">Already Assigned</span>}
+                          {alreadyAssigned && (
+                            <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200 uppercase">
+                              Already Assigned to {getVendorForSection(selectedSheetId, section.serialNo) || 'Vendor'}
+                            </span>
+                          )}
                         </p>
                         <p className="text-xs text-slate-500 mt-0.5">
                           {section.rows?.length || 0} row(s) • Desc: {section.rows?.[0]?.jobWeldDescription || 'None'}

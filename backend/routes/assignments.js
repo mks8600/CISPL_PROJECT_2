@@ -30,7 +30,7 @@ router.post('/', async (req, res) => {
   try {
     if (sheetId) {
       const activeAssignments = await pool.query(
-        "SELECT sheet_data FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')",
+        "SELECT sheet_data, section_statuses FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')",
         [sheetId]
       );
 
@@ -40,7 +40,15 @@ router.post('/', async (req, res) => {
       for (const row of activeAssignments.rows) {
         const existingData = row.sheet_data || {};
         const existingSections = existingData.sections || [];
-        const existingSerials = existingSections.map(s => s.serialNo).filter(Boolean);
+        const sectionStatuses = row.section_statuses || [];
+
+        const existingSerials = [];
+        existingSections.forEach((sec, idx) => {
+          // If the section is reassigned, it is no longer actively assigned by this record
+          if (sectionStatuses[idx] !== 'reassigned' && sec.serialNo) {
+            existingSerials.push(sec.serialNo);
+          }
+        });
 
         const conflict = incomingSerials.find(serial => existingSerials.includes(serial));
         if (conflict) {
