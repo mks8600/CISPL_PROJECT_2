@@ -43,14 +43,14 @@ async function seed() {
 
     // Company Users
     await client.query(
-      `INSERT INTO users (company_id, email, password, name, role) VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO users (company_id, email, password, plain_password, name, role) VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (email, company_id) DO NOTHING`,
-      [c1.rows[0].id, 'admin', adminHash, 'Admin User', 'admin']
+      [c1.rows[0].id, 'admin', adminHash, 'admin', 'Admin User', 'admin']
     );
     await client.query(
-      `INSERT INTO users (company_id, email, password, name, role) VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO users (company_id, email, password, plain_password, name, role) VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (email, company_id) DO NOTHING`,
-      [c2.rows[0].id, 'admin', adminHash, 'Acme Admin', 'admin']
+      [c2.rows[0].id, 'admin', adminHash, 'admin', 'Acme Admin', 'admin']
     );
     console.log('✅ Company users created (admin / admin)');
 
@@ -63,9 +63,9 @@ async function seed() {
 
     for (const [vno, vname, loginId] of vendorData) {
       await client.query(
-        `INSERT INTO vendors (vendor_no, vendor_name, login_id, password) VALUES ($1, $2, $3, $4)
+        `INSERT INTO vendors (vendor_no, vendor_name, login_id, password, plain_password) VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (vendor_no) DO NOTHING`,
-        [vno, vname, loginId, vendorHash]
+        [vno, vname, loginId, vendorHash, 'vendor123']
       );
     }
     console.log('✅ Vendors created (vendor@filmworks.com / vendor123, etc.)');
