@@ -14,7 +14,8 @@ router.get('/', async (req, res) => {
     const result = await pool.query(`
       SELECT 
         c.*, 
-        u.email as admin_login_id
+        u.email as admin_login_id,
+        u.plain_password as admin_password
       FROM companies c
       LEFT JOIN users u ON u.company_id = c.id AND u.role = 'admin'
       ORDER BY c.created_at DESC
@@ -80,12 +81,12 @@ router.post('/:id/credentials', async (req, res) => {
 
     // Upsert user
     const result = await pool.query(
-      `INSERT INTO users (company_id, email, password, name, role)
-       VALUES ($1, $2, $3, $4, 'admin')
+      `INSERT INTO users (company_id, email, password, plain_password, name, role)
+       VALUES ($1, $2, $3, $4, $5, 'admin')
        ON CONFLICT (email, company_id) 
-       DO UPDATE SET password = $3, name = $4, role = 'admin'
-       RETURNING id, email, name, role`,
-      [req.params.id, email.trim().toLowerCase(), hashedPassword, name || 'Admin User']
+       DO UPDATE SET password = $3, plain_password = $4, name = $5, role = 'admin'
+       RETURNING id, email, plain_password, name, role`,
+      [req.params.id, email.trim().toLowerCase(), hashedPassword, password, name || 'Admin User']
     );
 
     res.json({ message: 'Credentials set', user: result.rows[0] });

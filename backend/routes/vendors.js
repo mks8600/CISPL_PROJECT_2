@@ -12,7 +12,7 @@ router.use(authenticate, requirePortal('superadmin', 'company'));
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, vendor_no, vendor_name, login_id, created_at, updated_at FROM vendors ORDER BY created_at DESC'
+      'SELECT id, vendor_no, vendor_name, login_id, plain_password, created_at, updated_at FROM vendors ORDER BY created_at DESC'
     );
     res.json(result.rows);
   } catch (err) {
@@ -67,8 +67,8 @@ router.post('/:id/credentials', async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      'UPDATE vendors SET login_id = $1, password = $2, updated_at = NOW() WHERE id = $3 RETURNING id, vendor_no, vendor_name, login_id',
-      [loginId.trim().toLowerCase(), hashedPassword, req.params.id]
+      'UPDATE vendors SET login_id = $1, password = $2, plain_password = $3, updated_at = NOW() WHERE id = $4 RETURNING id, vendor_no, vendor_name, login_id, plain_password',
+      [loginId.trim().toLowerCase(), hashedPassword, password, req.params.id]
     );
 
     if (result.rows.length === 0) {

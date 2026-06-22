@@ -20,14 +20,15 @@ CREATE TABLE companies (
 -- 2. USERS (company admins, managers)
 -- ============================================
 CREATE TABLE users (
-    id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    company_id   UUID REFERENCES companies(id) ON DELETE CASCADE,
-    email        VARCHAR(255) NOT NULL,
-    password     VARCHAR(255) NOT NULL,
-    name         VARCHAR(255) NOT NULL,
-    role         VARCHAR(50) DEFAULT 'admin',
-    portal_type  VARCHAR(20) DEFAULT 'company',
-    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id     UUID REFERENCES companies(id) ON DELETE CASCADE,
+    email          VARCHAR(255) NOT NULL,
+    password       VARCHAR(255) NOT NULL,
+    plain_password VARCHAR(255),
+    name           VARCHAR(255) NOT NULL,
+    role           VARCHAR(50) DEFAULT 'admin',
+    portal_type    VARCHAR(20) DEFAULT 'company',
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(email, company_id)
 );
 
@@ -37,13 +38,14 @@ CREATE INDEX idx_users_company ON users(company_id);
 -- 3. VENDORS (global marketplace)
 -- ============================================
 CREATE TABLE vendors (
-    id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    vendor_no    VARCHAR(50) UNIQUE NOT NULL,
-    vendor_name  VARCHAR(255) NOT NULL,
-    login_id     VARCHAR(255) UNIQUE,
-    password     VARCHAR(255),
-    created_at   TIMESTAMPTZ DEFAULT NOW(),
-    updated_at   TIMESTAMPTZ DEFAULT NOW()
+    id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    vendor_no      VARCHAR(50) UNIQUE NOT NULL,
+    vendor_name    VARCHAR(255) NOT NULL,
+    login_id       VARCHAR(255) UNIQUE,
+    password       VARCHAR(255),
+    plain_password VARCHAR(255),
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================

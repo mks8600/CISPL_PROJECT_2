@@ -71,8 +71,8 @@ export default function SuperAdminOrganizationsPage() {
     const openLoginModal = (org) => {
         setSelectedOrg(org);
         setLoginData({
-            loginId: org.admin_login_id || '',
-            password: ''
+            loginId: org.admin_login_id || org.adminLoginId || '',
+            password: org.admin_password || org.adminPassword || ''
         });
     };
 
@@ -89,7 +89,7 @@ export default function SuperAdminOrganizationsPage() {
             // Update local state
             setOrganizations(prev => prev.map(o =>
                 o.id === selectedOrg.id
-                    ? { ...o, admin_login_id: loginData.loginId }
+                    ? { ...o, admin_login_id: loginData.loginId, admin_password: loginData.password }
                     : o
             ));
 
@@ -239,10 +239,19 @@ export default function SuperAdminOrganizationsPage() {
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right text-sm text-slate-500 hidden sm:block">
                                                     {org.adminLoginId || org.admin_login_id ? (
-                                                        <div className="flex flex-col items-end">
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                {org.adminLoginId || org.admin_login_id}
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                                                User ID: {org.adminLoginId || org.admin_login_id}
                                                             </span>
+                                                            {org.admin_password || org.adminPassword ? (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono bg-purple-50 text-purple-700 border border-purple-100">
+                                                                    Pass: {org.admin_password || org.adminPassword}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] text-slate-400 italic">
+                                                                    (Legacy hashed password)
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     ) : (
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">

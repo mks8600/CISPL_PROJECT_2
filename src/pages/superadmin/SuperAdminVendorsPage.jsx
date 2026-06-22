@@ -78,7 +78,7 @@ export default function SuperAdminVendorsPage() {
         setSelectedVendor(vendor);
         setLoginData({
             loginId: vendor.login_id || vendor.loginId || '',
-            password: ''
+            password: vendor.plain_password || vendor.plainPassword || ''
         });
     };
 
@@ -93,7 +93,7 @@ export default function SuperAdminVendorsPage() {
 
             setVendors(prev => prev.map(v =>
                 v.id === selectedVendor.id
-                    ? { ...v, login_id: loginData.loginId }
+                    ? { ...v, login_id: loginData.loginId, plain_password: loginData.password }
                     : v
             ));
 
@@ -225,9 +225,20 @@ export default function SuperAdminVendorsPage() {
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right text-sm text-slate-500 hidden sm:block">
                                                     {(vendor.login_id || vendor.loginId) ? (
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                            Login Provisioned
-                                                        </span>
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                                                User ID: {vendor.login_id || vendor.loginId}
+                                                            </span>
+                                                            {(vendor.plain_password || vendor.plainPassword) ? (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                                    Pass: {vendor.plain_password || vendor.plainPassword}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] text-slate-400 italic">
+                                                                    (Legacy hashed password)
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     ) : (
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                                                             Pending Access
