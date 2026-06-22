@@ -161,10 +161,9 @@ export default function CompanyOrdersPage() {
 
   const isSectionActivelyAssigned = (sheetId, serialNo) => {
     return assignedSheets.some((assignment) => {
-      // Skip assignments without a vendor (orphan revision sheets from complete-with-revision)
+      // Skip assignments without a vendor (orphan revision sheets from complete-with-revision or deleted vendors)
       const vendorId = assignment.vendor_id || assignment.vendorId;
-      const vendorName = assignment.vendor_name || assignment.vendorName;
-      if (!vendorId && !vendorName) return false;
+      if (!vendorId) return false;
 
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
@@ -189,8 +188,7 @@ export default function CompanyOrdersPage() {
     const assignedSectionSerials = new Set();
     assignedSheets.forEach((assignment) => {
       const vendorId = assignment.vendor_id || assignment.vendorId;
-      const vendorName = assignment.vendor_name || assignment.vendorName;
-      if (!vendorId && !vendorName) return;
+      if (!vendorId) return;
 
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
@@ -211,8 +209,7 @@ export default function CompanyOrdersPage() {
     const assignedVendors = [];
     assignedSheets.forEach((assignment) => {
       const vendorId = assignment.vendor_id || assignment.vendorId;
-      const vendorName = assignment.vendor_name || assignment.vendorName;
-      if (!vendorId && !vendorName) return;
+      if (!vendorId) return;
 
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
@@ -233,8 +230,7 @@ export default function CompanyOrdersPage() {
   const getVendorForSection = (sheetId, serialNo) => {
     const found = assignedSheets.find((assignment) => {
       const vendorId = assignment.vendor_id || assignment.vendorId;
-      const vendorName = assignment.vendor_name || assignment.vendorName;
-      if (!vendorId && !vendorName) return false;
+      if (!vendorId) return false;
 
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
           (assignment.status === 'pending' || assignment.status === 'accepted')) {

@@ -82,6 +82,10 @@ router.get('/', async (req, res) => {
             const row = (section.rows || [])[rIdx] || {};
             const size = rowData.filmSize.trim();
             const spotCount = parseInt(rowData.spotNo) || 0;
+            
+            // Skip zero-spot rows to prevent cluttering billing calculations
+            if (spotCount <= 0) continue;
+
             filmSizeTotals[size] = (filmSizeTotals[size] || 0) + spotCount;
             totalSpotsAll += spotCount;
 

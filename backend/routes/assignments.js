@@ -20,6 +20,48 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Helper function to check if any of the incoming serial numbers are already assigned
+async function checkAssignmentConflicts(pool, sheetId, incomingSerials, excludeAssignmentId = null) {
+  if (!sheetId || !incomingSerials || incomingSerials.length === 0) return null;
+
+  let query = "SELECT id, sheet_data, section_statuses, review_statuses, vendor_id FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')";
+  const params = [sheetId];
+  if (excludeAssignmentId) {
+    query += " AND id != $2";
+    params.push(excludeAssignmentId);
+  }
+
+  const activeAssignments = await pool.query(query, params);
+
+  for (const row of activeAssignments.rows) {
+    // Skip assignments without a vendor (orphan revision sheets)
+    if (!row.vendor_id) continue;
+
+    const existingData = row.sheet_data || {};
+    const existingSections = existingData.sections || [];
+    const sectionStatuses = row.section_statuses || [];
+    const reviewStatuses = row.review_statuses || [];
+
+    const existingSerials = [];
+    existingSections.forEach((sec, idx) => {
+      const secStatus = sectionStatuses[idx] || 'pending';
+      const revStatus = reviewStatuses[idx] || null;
+      // Skip sections that are reassigned or fully completed (complete + reviewed ok)
+      if (secStatus === 'reassigned') return;
+      if (secStatus === 'complete' && revStatus === 'ok') return;
+      if (sec.serialNo) {
+        existingSerials.push(sec.serialNo);
+      }
+    });
+
+    const conflict = incomingSerials.find(serial => existingSerials.includes(serial));
+    if (conflict) {
+      return conflict;
+    }
+  }
+  return null;
+}
+
 // POST /api/assignments — assign sheet to vendor
 router.post('/', async (req, res) => {
   const { sheetId, sheetData, vendorId, vendorName, vendorNo } = req.body;
@@ -29,39 +71,12 @@ router.post('/', async (req, res) => {
 
   try {
     if (sheetId) {
-      const activeAssignments = await pool.query(
-        "SELECT sheet_data, section_statuses, review_statuses, vendor_id FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')",
-        [sheetId]
-      );
-
       const incomingSections = sheetData.sections || [];
       const incomingSerials = incomingSections.map(s => s.serialNo).filter(Boolean);
 
-      for (const row of activeAssignments.rows) {
-        // Skip assignments without a vendor (orphan revision sheets)
-        if (!row.vendor_id) continue;
-
-        const existingData = row.sheet_data || {};
-        const existingSections = existingData.sections || [];
-        const sectionStatuses = row.section_statuses || [];
-        const reviewStatuses = row.review_statuses || [];
-
-        const existingSerials = [];
-        existingSections.forEach((sec, idx) => {
-          const secStatus = sectionStatuses[idx] || 'pending';
-          const revStatus = reviewStatuses[idx] || null;
-          // Skip sections that are reassigned or fully completed (complete + reviewed ok)
-          if (secStatus === 'reassigned') return;
-          if (secStatus === 'complete' && revStatus === 'ok') return;
-          if (sec.serialNo) {
-            existingSerials.push(sec.serialNo);
-          }
-        });
-
-        const conflict = incomingSerials.find(serial => existingSerials.includes(serial));
-        if (conflict) {
-          return res.status(400).json({ error: `Item/Section "${conflict}" is already actively assigned.` });
-        }
+      const conflict = await checkAssignmentConflicts(pool, sheetId, incomingSerials);
+      if (conflict) {
+        return res.status(400).json({ error: `Item/Section "${conflict}" is already actively assigned.` });
       }
     }
 
@@ -155,6 +170,19 @@ router.put('/:id/reassign', async (req, res) => {
     if (current.rows.length === 0) return res.status(404).json({ error: 'Assignment not found' });
 
     const assignment = current.rows[0];
+
+    // Check for conflicts before reassigning
+    if (assignment.sheet_id) {
+      const newSections = sheetData.sections || [];
+      const incomingSerials = newSections.map(s => s.serialNo).filter(Boolean);
+      
+      // Exclude the current assignment from conflict check since we are reassigning from it
+      const conflict = await checkAssignmentConflicts(pool, assignment.sheet_id, incomingSerials, assignment.id);
+      if (conflict) {
+        return res.status(400).json({ error: `Item/Section "${conflict}" is already actively assigned to another vendor.` });
+      }
+    }
+
     const sectionStatuses = assignment.section_statuses || [];
     for (const idx of sectionIndices) {
       sectionStatuses[idx] = 'reassigned';

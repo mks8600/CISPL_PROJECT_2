@@ -79,15 +79,28 @@ router.post('/:id/credentials', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Upsert user
-    const result = await pool.query(
-      `INSERT INTO users (company_id, email, password, plain_password, name, role)
-       VALUES ($1, $2, $3, $4, $5, 'admin')
-       ON CONFLICT (email, company_id) 
-       DO UPDATE SET password = $3, plain_password = $4, name = $5, role = 'admin'
-       RETURNING id, email, plain_password, name, role`,
-      [req.params.id, email.trim().toLowerCase(), hashedPassword, password, name || 'Admin User']
+    // Update existing admin or insert new one if no admin exists for this company
+    const existingAdmin = await pool.query(
+      "SELECT id FROM users WHERE company_id = $1 AND role = 'admin'",
+      [req.params.id]
     );
+
+    let result;
+    if (existingAdmin.rows.length > 0) {
+      result = await pool.query(
+        `UPDATE users SET email = $1, password = $2, plain_password = $3, name = $4 
+         WHERE company_id = $5 AND role = 'admin'
+         RETURNING id, email, plain_password, name, role`,
+        [email.trim().toLowerCase(), hashedPassword, password, name || 'Admin User', req.params.id]
+      );
+    } else {
+      result = await pool.query(
+        `INSERT INTO users (company_id, email, password, plain_password, name, role)
+         VALUES ($1, $2, $3, $4, $5, 'admin')
+         RETURNING id, email, plain_password, name, role`,
+        [req.params.id, email.trim().toLowerCase(), hashedPassword, password, name || 'Admin User']
+      );
+    }
 
     res.json({ message: 'Credentials set', user: result.rows[0] });
   } catch (err) {
