@@ -41,11 +41,14 @@ router.post('/', async (req, res) => {
       return res.json(result.rows[0]);
     }
 
-    // Check for duplicate (same date + jobNo)
-    const dup = await pool.query(
-      `SELECT id FROM sheets WHERE company_id = $1 AND form_data->>'date' = $2 AND form_data->>'jobNo' = $3`,
-      [req.user.companyId, formData.date, formData.jobNo]
-    );
+    // Check for duplicate (same rsNo)
+    let dup = { rows: [] };
+    if (formData.rsNo) {
+      dup = await pool.query(
+        `SELECT id FROM sheets WHERE company_id = $1 AND form_data->>'rsNo' = $2`,
+        [req.user.companyId, formData.rsNo]
+      );
+    }
 
     if (dup.rows.length > 0) {
       // Overwrite duplicate
