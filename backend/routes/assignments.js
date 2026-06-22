@@ -30,7 +30,7 @@ router.post('/', async (req, res) => {
   try {
     if (sheetId) {
       const activeAssignments = await pool.query(
-        "SELECT sheet_data, section_statuses, review_statuses FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')",
+        "SELECT sheet_data, section_statuses, review_statuses, vendor_id FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')",
         [sheetId]
       );
 
@@ -38,6 +38,9 @@ router.post('/', async (req, res) => {
       const incomingSerials = incomingSections.map(s => s.serialNo).filter(Boolean);
 
       for (const row of activeAssignments.rows) {
+        // Skip assignments without a vendor (orphan revision sheets)
+        if (!row.vendor_id) continue;
+
         const existingData = row.sheet_data || {};
         const existingSections = existingData.sections || [];
         const sectionStatuses = row.section_statuses || [];
