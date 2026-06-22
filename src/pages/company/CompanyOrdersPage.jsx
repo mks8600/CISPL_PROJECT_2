@@ -147,6 +147,18 @@ export default function CompanyOrdersPage() {
     return !isCompleted;
   });
 
+  // Helper: check if a section in an assignment is still "in progress" (not reassigned, not completed+reviewed)
+  const isSectionStillActive = (assignment, sectionIndex) => {
+    const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
+    const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || [];
+    const statusOfSec = sectionStatuses[sectionIndex] || 'pending';
+    const reviewOfSec = reviewStatuses[sectionIndex] || null;
+    // A section is NOT active if it's been reassigned or fully completed (complete + reviewed as ok)
+    if (statusOfSec === 'reassigned') return false;
+    if (statusOfSec === 'complete' && reviewOfSec === 'ok') return false;
+    return true;
+  };
+
   const isSectionActivelyAssigned = (sheetId, serialNo) => {
     return assignedSheets.some((assignment) => {
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
@@ -156,9 +168,7 @@ export default function CompanyOrdersPage() {
         const idx = sections.findIndex(sec => sec.serialNo === serialNo);
         if (idx === -1) return false;
         
-        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
-        const statusOfSec = sectionStatuses[idx] || 'pending';
-        return statusOfSec !== 'reassigned';
+        return isSectionStillActive(assignment, idx);
       }
       return false;
     });
@@ -178,12 +188,8 @@ export default function CompanyOrdersPage() {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
         const sections = sheetData.sections || [];
         sections.forEach((sec, idx) => {
-          if (sec.serialNo) {
-            const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
-            const statusOfSec = sectionStatuses[idx] || 'pending';
-            if (statusOfSec !== 'reassigned') {
-              assignedSectionSerials.add(sec.serialNo);
-            }
+          if (sec.serialNo && isSectionStillActive(assignment, idx)) {
+            assignedSectionSerials.add(sec.serialNo);
           }
         });
       }
@@ -199,11 +205,7 @@ export default function CompanyOrdersPage() {
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
         const sections = sheetData.sections || [];
-        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
-        const hasActiveSection = sections.some((sec, idx) => {
-          const statusOfSec = sectionStatuses[idx] || 'pending';
-          return statusOfSec !== 'reassigned';
-        });
+        const hasActiveSection = sections.some((sec, idx) => isSectionStillActive(assignment, idx));
         if (hasActiveSection) {
           const vendorName = assignment.vendor_name || assignment.vendorName;
           if (vendorName) {
@@ -224,9 +226,7 @@ export default function CompanyOrdersPage() {
         const idx = sections.findIndex(sec => sec.serialNo === serialNo);
         if (idx === -1) return false;
         
-        const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
-        const statusOfSec = sectionStatuses[idx] || 'pending';
-        return statusOfSec !== 'reassigned';
+        return isSectionStillActive(assignment, idx);
       }
       return false;
     });

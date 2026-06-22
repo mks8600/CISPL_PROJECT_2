@@ -30,7 +30,7 @@ router.post('/', async (req, res) => {
   try {
     if (sheetId) {
       const activeAssignments = await pool.query(
-        "SELECT sheet_data, section_statuses FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')",
+        "SELECT sheet_data, section_statuses, review_statuses FROM assignments WHERE sheet_id = $1 AND status IN ('pending', 'accepted')",
         [sheetId]
       );
 
@@ -41,11 +41,16 @@ router.post('/', async (req, res) => {
         const existingData = row.sheet_data || {};
         const existingSections = existingData.sections || [];
         const sectionStatuses = row.section_statuses || [];
+        const reviewStatuses = row.review_statuses || [];
 
         const existingSerials = [];
         existingSections.forEach((sec, idx) => {
-          // If the section is reassigned, it is no longer actively assigned by this record
-          if (sectionStatuses[idx] !== 'reassigned' && sec.serialNo) {
+          const secStatus = sectionStatuses[idx] || 'pending';
+          const revStatus = reviewStatuses[idx] || null;
+          // Skip sections that are reassigned or fully completed (complete + reviewed ok)
+          if (secStatus === 'reassigned') return;
+          if (secStatus === 'complete' && revStatus === 'ok') return;
+          if (sec.serialNo) {
             existingSerials.push(sec.serialNo);
           }
         });
