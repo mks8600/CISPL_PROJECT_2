@@ -46,9 +46,9 @@ async function checkAssignmentConflicts(client, sheetId, incomingSerials, exclud
     existingSections.forEach((sec, idx) => {
       const secStatus = sectionStatuses[idx] || 'pending';
       const revStatus = reviewStatuses[idx] || null;
-      // Skip sections that are reassigned or fully completed (complete + reviewed ok)
+      // Skip sections that are reassigned or completed (vendor finished work)
       if (secStatus === 'reassigned') return;
-      if (secStatus === 'complete' && revStatus === 'ok') return;
+      if (secStatus === 'complete') return;
       if (sec.serialNo) {
         existingSerials.push(sec.serialNo);
       }

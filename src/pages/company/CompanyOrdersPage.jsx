@@ -141,21 +141,19 @@ export default function CompanyOrdersPage() {
     if (a.status !== 'accepted' || !a.submitted) return true;
     const sheetData = a.sheet_data || a.sheet || {};
     const statuses = a.section_statuses || a.sectionStatuses || (sheetData.sections || []).map(() => 'pending');
-    const reviewStatuses = a.review_statuses || a.reviewStatuses || (sheetData.sections || []).map(() => null);
     if (!statuses || statuses.length === 0) return true;
-    const isCompleted = statuses.every((s, i) => s === 'reassigned' || (s === 'complete' && reviewStatuses[i] === 'ok'));
+    // Hide assignments where all sections are either reassigned or completed (vendor finished work)
+    const isCompleted = statuses.every((s) => s === 'reassigned' || s === 'complete');
     return !isCompleted;
   });
 
-  // Helper: check if a section in an assignment is still "in progress" (not reassigned, not completed+reviewed)
+  // Helper: check if a section in an assignment is still "in progress" (not reassigned, not completed)
   const isSectionStillActive = (assignment, sectionIndex) => {
     const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || [];
-    const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || [];
     const statusOfSec = sectionStatuses[sectionIndex] || 'pending';
-    const reviewOfSec = reviewStatuses[sectionIndex] || null;
-    // A section is NOT active if it's been reassigned or fully completed (complete + reviewed as ok)
+    // A section is NOT active if it's been reassigned or completed (vendor finished work)
     if (statusOfSec === 'reassigned') return false;
-    if (statusOfSec === 'complete' && reviewOfSec === 'ok') return false;
+    if (statusOfSec === 'complete') return false;
     return true;
   };
 
