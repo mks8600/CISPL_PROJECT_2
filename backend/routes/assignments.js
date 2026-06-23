@@ -242,12 +242,18 @@ router.put('/:id/reassign', async (req, res) => {
 router.put('/:id/complete-with-revision', async (req, res) => {
   const { vendorData, reviewStatuses: incomingReviewStatuses, reviewDescriptions: incomingReviewDescriptions } = req.body;
 
+  const client = await pool.connect();
   try {
-    const current = await pool.query(
-      'SELECT * FROM assignments WHERE id = $1 AND company_id = $2',
+    await client.query('BEGIN');
+
+    const current = await client.query(
+      'SELECT * FROM assignments WHERE id = $1 AND company_id = $2 FOR UPDATE',
       [req.params.id, req.user.companyId]
     );
-    if (current.rows.length === 0) return res.status(404).json({ error: 'Assignment not found' });
+    if (current.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Assignment not found' });
+    }
 
     const assignment = current.rows[0];
     const sheetData = JSON.parse(JSON.stringify(assignment.sheet_data || {}));
@@ -346,7 +352,7 @@ router.put('/:id/complete-with-revision', async (req, res) => {
     }
 
     // Update original — sheet_data stays intact, only vendor_data observations cleaned
-    await pool.query(
+    await client.query(
       `UPDATE assignments SET review_statuses = $1, review_descriptions = $2, vendor_data = $3, updated_at = NOW() WHERE id = $4`,
       [JSON.stringify(finalReviewStatuses), JSON.stringify(finalReviewDescriptions), JSON.stringify(vData), req.params.id]
     );
@@ -357,7 +363,7 @@ router.put('/:id/complete-with-revision', async (req, res) => {
       const originalRsNo = formData.rsNo || '';
       const baseRsNo = originalRsNo.replace(/ rev-\d+$/, '');
 
-      const existingRevisions = await pool.query(
+      const existingRevisions = await client.query(
         `SELECT sheet_data FROM assignments WHERE company_id = $1
          AND (
            sheet_data->'formData'->>'rsNo' LIKE $2
@@ -393,7 +399,7 @@ router.put('/:id/complete-with-revision', async (req, res) => {
 
       const newStatuses = revisionSections.map(() => 'pending');
 
-      const revResult = await pool.query(
+      const revResult = await client.query(
         `INSERT INTO assignments (company_id, company_name, sheet_id, sheet_data, section_statuses, vendor_data, reassigned_from)
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
         [
@@ -410,7 +416,9 @@ router.put('/:id/complete-with-revision', async (req, res) => {
       revisionAssignment = revResult.rows[0];
     }
 
-    const updated = await pool.query('SELECT * FROM assignments WHERE id = $1', [req.params.id]);
+    const updated = await client.query('SELECT * FROM assignments WHERE id = $1', [req.params.id]);
+
+    await client.query('COMMIT');
 
     res.json({
       original: updated.rows[0],
@@ -418,8 +426,11 @@ router.put('/:id/complete-with-revision', async (req, res) => {
       revisionCreated: revisionAssignment !== null,
     });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Complete-with-revision error:', err);
     res.status(500).json({ error: 'Failed to complete review with revision' });
+  } finally {
+    client.release();
   }
 });
 

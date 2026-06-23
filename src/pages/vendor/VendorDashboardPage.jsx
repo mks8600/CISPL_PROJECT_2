@@ -38,7 +38,7 @@ export default function VendorDashboardPage() {
         load();
         window.addEventListener('focus', load);
         return () => window.removeEventListener('focus', load);
-    }, [user?.id]);
+    }, [user, user?.id]);
 
     const handleAddFilmSize = async (e) => {
         e.preventDefault();

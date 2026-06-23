@@ -89,7 +89,7 @@ export default function CompanyBillingPage() {
         } else if (billingResult.vendors && billingResult.vendors.length > 0 && !selectedPricingVendor) {
             setSelectedPricingVendor(billingResult.vendors[0].vendor_id);
         }
-    }, [billingResult.vendors, selectedVendor]);
+    }, [billingResult.vendors, selectedVendor, selectedPricingVendor]);
 
     const handleVerifyPassword = async () => {
         if (!passwordInput) {

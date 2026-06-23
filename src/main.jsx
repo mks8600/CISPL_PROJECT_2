@@ -4,7 +4,7 @@ import './index.css'
 import App from './App'
 
 console.log('=============================================');
-console.log('DEPLOYMENT VERSION:V39 (ACTIVE)');
+console.log('DEPLOYMENT VERSION:V40 (ACTIVE)');
 console.log('=============================================');
 
 createRoot(document.getElementById('root')).render(
