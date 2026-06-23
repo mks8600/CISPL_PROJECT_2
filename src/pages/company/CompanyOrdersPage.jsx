@@ -67,11 +67,48 @@ export default function CompanyOrdersPage() {
       return;
     }
 
-    const sheet = sheets.find((s) => String(s.id) === String(selectedSheetId));
+    let sheet;
+    let isOrphan = false;
+    let orphanId = null;
+
+    if (String(selectedSheetId).startsWith('orphan-')) {
+      isOrphan = true;
+      orphanId = String(selectedSheetId).replace('orphan-', '');
+      const oa = assignedSheets.find(a => String(a.id) === orphanId);
+      if (oa) {
+        const sheetData = oa.sheet_data || oa.sheet || {};
+        sheet = {
+          id: selectedSheetId,
+          sections: sheetData.sections || []
+        };
+      }
+    } else {
+      sheet = sheets.find((s) => String(s.id) === String(selectedSheetId));
+    }
+
     const vendor = vendors.find((v) => String(v.id) === String(selectedVendorId));
 
     if (!sheet || !vendor) {
       toast.error('Invalid selection.');
+      return;
+    }
+
+    if (isOrphan) {
+      try {
+        const updatedAssignment = await assignmentsApi.assignOrphan(orphanId, {
+          vendorId: vendor.id,
+          vendorNo: vendor.vendor_no || vendor.vendorNo,
+          vendorName: vendor.vendor_name || vendor.vendorName,
+        });
+
+        setAssignedSheets(assignedSheets.map(a => String(a.id) === orphanId ? updatedAssignment : a));
+        setSelectedSheetId('');
+        setSelectedVendorId('');
+        setSelectedSections([]);
+        toast.success(`Assigned revision to ${vendor.vendor_name || vendor.vendorName}!`);
+      } catch (err) {
+        toast.error(err.message || 'Failed to assign revision sheet');
+      }
       return;
     }
 
@@ -304,6 +341,19 @@ export default function CompanyOrdersPage() {
     const isCompleted = isSheetFullyCompleted(sheet.id);
     const isFullyAssigned = isSheetFullyAssigned(sheet.id);
     return !isCompleted && !isFullyAssigned;
+  });
+
+  const orphanAssignments = assignedSheets.filter(a => !a.vendor_id && !a.vendorId);
+  orphanAssignments.forEach(oa => {
+    const sheetData = oa.sheet_data || oa.sheet || {};
+    availableSheetsList.push({
+      id: `orphan-${oa.id}`,
+      isOrphan: true,
+      originalAssignment: oa,
+      form_data: sheetData.formData || sheetData.form_data || {},
+      sections: sheetData.sections || [],
+      created_at: oa.assigned_at || oa.assignedAt
+    });
   });
 
   return (

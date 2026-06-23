@@ -107,6 +107,48 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PUT /api/assignments/:id/assign-orphan — assign an orphan revision assignment to a vendor
+router.put('/:id/assign-orphan', async (req, res) => {
+  const { vendorId, vendorName, vendorNo } = req.body;
+  if (!vendorId) {
+    return res.status(400).json({ error: 'vendorId is required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query(
+      'SELECT * FROM assignments WHERE id = $1 AND company_id = $2 FOR UPDATE',
+      [req.params.id, req.user.companyId]
+    );
+
+    if (current.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Assignment not found' });
+    }
+
+    const assignment = current.rows[0];
+    if (assignment.vendor_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Assignment is already assigned to a vendor' });
+    }
+
+    const result = await client.query(
+      `UPDATE assignments SET vendor_id = $1, vendor_name = $2, vendor_no = $3, updated_at = NOW() WHERE id = $4 RETURNING *`,
+      [vendorId, vendorName, vendorNo, req.params.id]
+    );
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Assign orphan error:', err);
+    res.status(500).json({ error: 'Failed to assign orphan assignment' });
+  } finally {
+    client.release();
+  }
+});
+
 // DELETE /api/assignments/:id
 router.delete('/:id', async (req, res) => {
   try {

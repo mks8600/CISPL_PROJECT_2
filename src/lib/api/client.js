@@ -109,6 +109,7 @@ export const assignmentsApi = {
   review: (id, data) => api.put(`/assignments/${id}/review`, data),
   reassign: (id, data) => api.put(`/assignments/${id}/reassign`, data),
   completeWithRevision: (id, data) => api.put(`/assignments/${id}/complete-with-revision`, data),
+  assignOrphan: (id, data) => api.put(`/assignments/${id}/assign-orphan`, data),
 };
 
 export const jobsApi = {
