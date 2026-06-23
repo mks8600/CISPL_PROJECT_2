@@ -171,8 +171,15 @@ export default function CreateOrderPage() {
       if (activeSheetId) {
         // Fallback to manual put if update is missing, or just use save if it's an upsert
         const res = await sheetsApi.save({ ...payload, id: activeSheetId });
-        toast.success('Sheet updated successfully!');
-        setSavedSheets(prev => prev.map(s => s.id === activeSheetId ? res : s));
+        if (res.id !== activeSheetId) {
+          // rsNo changed — backend created a new sheet, old one is preserved for existing assignments
+          toast.success('Sheet saved as new entry (RS No. changed)');
+          setSavedSheets(prev => [res, ...prev]);
+          setActiveSheetId(res.id);
+        } else {
+          toast.success('Sheet updated successfully!');
+          setSavedSheets(prev => prev.map(s => s.id === activeSheetId ? res : s));
+        }
       } else {
         const res = await sheetsApi.save(payload);
         toast.success('Sheet created successfully!');

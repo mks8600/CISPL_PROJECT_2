@@ -34,16 +34,36 @@ router.post('/', async (req, res) => {
     await client.query('LOCK TABLE sheets IN SHARE ROW EXCLUSIVE MODE');
 
     if (id) {
-      // Update existing sheet (verify ownership)
+      // Fetch the existing sheet to check if rsNo changed
+      const existing = await client.query(
+        `SELECT id, form_data FROM sheets WHERE id = $1 AND company_id = $2`,
+        [id, req.user.companyId]
+      );
+      if (existing.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Sheet not found' });
+      }
+
+      const oldRsNo = (existing.rows[0].form_data || {}).rsNo;
+      const newRsNo = formData.rsNo;
+
+      if (oldRsNo && newRsNo && String(oldRsNo) !== String(newRsNo)) {
+        // rsNo changed — create a NEW sheet so old assignments keep their reference
+        const result = await client.query(
+          `INSERT INTO sheets (company_id, company_name, form_data, sections)
+           VALUES ($1, $2, $3, $4) RETURNING *`,
+          [req.user.companyId, req.user.companyName, JSON.stringify(formData), JSON.stringify(sections)]
+        );
+        await client.query('COMMIT');
+        return res.status(201).json(result.rows[0]);
+      }
+
+      // rsNo unchanged — update in place
       const result = await client.query(
         `UPDATE sheets SET form_data = $1, sections = $2, updated_at = NOW()
          WHERE id = $3 AND company_id = $4 RETURNING *`,
         [JSON.stringify(formData), JSON.stringify(sections), id, req.user.companyId]
       );
-      if (result.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Sheet not found' });
-      }
       await client.query('COMMIT');
       return res.json(result.rows[0]);
     }
