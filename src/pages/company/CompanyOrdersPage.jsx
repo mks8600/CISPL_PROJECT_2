@@ -158,6 +158,9 @@ export default function CompanyOrdersPage() {
   };
 
   const isSectionActivelyAssigned = (sheetId, serialNo) => {
+    const sheet = sheets.find((s) => String(s.id) === String(sheetId));
+    const sheetRsNo = sheet ? (sheet.formData || sheet.form_data || {}).rsNo : null;
+
     return assignedSheets.some((assignment) => {
       // Skip assignments without a vendor (orphan revision sheets from complete-with-revision or deleted vendors)
       const vendorId = assignment.vendor_id || assignment.vendorId;
@@ -166,6 +169,9 @@ export default function CompanyOrdersPage() {
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const assignmentRsNo = (sheetData.formData || sheetData.form_data || {}).rsNo;
+        if (sheetRsNo && assignmentRsNo !== sheetRsNo) return false;
+
         const sections = sheetData.sections || [];
         const idx = sections.findIndex(sec => sec.serialNo === serialNo);
         if (idx === -1) return false;
@@ -178,12 +184,14 @@ export default function CompanyOrdersPage() {
 
   const isSheetFullyAssigned = (sheetId) => {
     const sheet = sheets.find((s) => String(s.id) === String(sheetId));
-    if (!sheet || !sheet.sections) return false;
+    if (!sheet || !sheet.sections || sheet.sections.length === 0) return false;
 
     const allSections = sheet.sections.map(s => s.serialNo).filter(Boolean);
     if (allSections.length === 0) return false;
 
+    const sheetRsNo = (sheet.formData || sheet.form_data || {}).rsNo;
     const assignedSectionSerials = new Set();
+
     assignedSheets.forEach((assignment) => {
       const vendorId = assignment.vendor_id || assignment.vendorId;
       if (!vendorId) return;
@@ -191,6 +199,9 @@ export default function CompanyOrdersPage() {
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const assignmentRsNo = (sheetData.formData || sheetData.form_data || {}).rsNo;
+        if (sheetRsNo && assignmentRsNo !== sheetRsNo) return;
+
         const sections = sheetData.sections || [];
         sections.forEach((sec, idx) => {
           if (sec.serialNo && isSectionStillActive(assignment, idx)) {
@@ -204,7 +215,10 @@ export default function CompanyOrdersPage() {
   };
 
   const getAssignedVendorsForSheet = (sheetId) => {
+    const sheet = sheets.find((s) => String(s.id) === String(sheetId));
+    const sheetRsNo = sheet ? (sheet.formData || sheet.form_data || {}).rsNo : null;
     const assignedVendors = [];
+
     assignedSheets.forEach((assignment) => {
       const vendorId = assignment.vendor_id || assignment.vendorId;
       if (!vendorId) return;
@@ -212,6 +226,9 @@ export default function CompanyOrdersPage() {
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const assignmentRsNo = (sheetData.formData || sheetData.form_data || {}).rsNo;
+        if (sheetRsNo && assignmentRsNo !== sheetRsNo) return;
+
         const sections = sheetData.sections || [];
         const hasActiveSection = sections.some((sec, idx) => isSectionStillActive(assignment, idx));
         if (hasActiveSection) {
@@ -226,6 +243,9 @@ export default function CompanyOrdersPage() {
   };
 
   const getVendorForSection = (sheetId, serialNo) => {
+    const sheet = sheets.find((s) => String(s.id) === String(sheetId));
+    const sheetRsNo = sheet ? (sheet.formData || sheet.form_data || {}).rsNo : null;
+
     const found = assignedSheets.find((assignment) => {
       const vendorId = assignment.vendor_id || assignment.vendorId;
       if (!vendorId) return false;
@@ -233,6 +253,9 @@ export default function CompanyOrdersPage() {
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId) &&
           (assignment.status === 'pending' || assignment.status === 'accepted')) {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const assignmentRsNo = (sheetData.formData || sheetData.form_data || {}).rsNo;
+        if (sheetRsNo && assignmentRsNo !== sheetRsNo) return false;
+
         const sections = sheetData.sections || [];
         const idx = sections.findIndex(sec => sec.serialNo === serialNo);
         if (idx === -1) return false;
@@ -248,16 +271,24 @@ export default function CompanyOrdersPage() {
     const sheet = sheets.find((s) => String(s.id) === String(sheetId));
     if (!sheet || !sheet.sections) return false;
 
+    const sheetRsNo = (sheet.formData || sheet.form_data || {}).rsNo;
     const completedSectionsIndices = new Set();
+
     assignedSheets.forEach((assignment) => {
       if (String(assignment.sheet_id || assignment.sheetId) === String(sheetId)) {
         const sheetData = assignment.sheet_data || assignment.sheet || {};
+        const assignmentRsNo = (sheetData.formData || sheetData.form_data || {}).rsNo;
+        if (sheetRsNo && assignmentRsNo !== sheetRsNo) return;
+
         const sections = sheetData.sections || [];
         const sectionStatuses = assignment.section_statuses || assignment.sectionStatuses || sections.map(() => 'pending');
         const reviewStatuses = assignment.review_statuses || assignment.reviewStatuses || sections.map(() => null);
 
         sections.forEach((sec, idx) => {
-          if (sectionStatuses[idx] === 'complete' && reviewStatuses[idx] === 'ok') {
+          // If the section is complete, mark its index as complete for the *current* sheet
+          // Note: we don't strictly need reviewStatuses == 'ok' since 'complete' means vendor is done
+          // But to be safe with visibility, we can just say 'complete' is enough to hide it
+          if (sectionStatuses[idx] === 'complete') {
             const rootIdx = sheet.sections.findIndex(rs => rs.serialNo === sec.serialNo);
             if (rootIdx !== -1) completedSectionsIndices.add(rootIdx);
           }
